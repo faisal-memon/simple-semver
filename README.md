@@ -21,6 +21,7 @@ concurrency:
 
 permissions:
   contents: write
+  pull-requests: read
 
 jobs:
   release:
@@ -32,7 +33,7 @@ jobs:
 
       - name: Bump and write version tag
         id: bump
-        uses: faisal-memon/simple-semver@v0
+        uses: faisal-memon/pr-label-semver@v0
         with:
           write-tag: "true"
           write-major-tag: "true"
@@ -49,6 +50,7 @@ jobs:
 > [!NOTE]
 > - Ensure `actions/checkout` uses `fetch-depth: 0`
 > - Requires workflow permissions: `contents: write` to be able to write the semantic version tag
+> - Requires `pull-requests: read` when `version-bump` is empty (PR-label resolution path)
 > - Must configure workflow `concurrency` with `cancel-in-progress: false` to avoid tag collisions
 
 ## Inputs
