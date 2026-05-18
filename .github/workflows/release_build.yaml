@@ -49,5 +49,6 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.bump.outputs.new-tag }}
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
