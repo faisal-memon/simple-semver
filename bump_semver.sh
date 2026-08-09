@@ -103,13 +103,13 @@ resolve_bump_from_labels() {
     fi
 
     case "${normalized_label}" in
-      semver:major|major)
+      semver:major)
         bump="major"
         ;;
-      semver:minor|minor)
+      semver:minor)
         bump="minor"
         ;;
-      semver:patch|patch)
+      semver:patch)
         bump="patch"
         ;;
       *)

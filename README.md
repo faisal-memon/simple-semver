@@ -81,6 +81,5 @@ The version always follows `major`.`minor`.`patch` format. Each time this action
 - If no matching label is found, it defaults to `patch`
 - Selected part of tag is bumped
 
-Compatibility note: plain `major`, `minor`, and `patch` labels are still accepted for now, but `semver:*` labels are the preferred format.
 
 Ignored labels are filtered out before semver labels are evaluated. By default, the action ignores the `dependencies` label.
