@@ -12,7 +12,7 @@ When no prior tags exist, it treats the baseline as `v0.0.0` (or `<tag-prefix>0.
 
 ## Core Behavior
 
-The action runs `bump_semver.py` and emits:
+The action runs `bump_semver.py` directly and emits:
 
 - `new-tag`: the computed next version tag
 - `previous-tag`: the latest version tag used as the bump source

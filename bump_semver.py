@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+
 import json
 import os
 import re
@@ -20,60 +21,60 @@ class ActionError(Exception):
     pass
 
 
-def log_info(message: str) -> None:
-    print(f"[pr-label-semver] {message}")
+def main() -> int:
+    version_bump = env("INPUT_VERSION_BUMP")
+    tag_prefix = env("INPUT_TAG_PREFIX", "v")
+    github_token = env("INPUT_GITHUB_TOKEN") or env("GITHUB_TOKEN")
+    ignored_labels = parse_ignored_labels(env("INPUT_IGNORE_LABELS", "dependencies"))
+    write_tag = env_bool("INPUT_WRITE_TAG", default=False)
+    write_major_tag = env_bool("INPUT_WRITE_MAJOR_TAG", default=False)
 
+    try:
+        resolved_bump = compute_version_bump(version_bump, github_token, ignored_labels)
+        git("fetch", "--tags", "--force", check=False, capture_output=True)
+        latest_tag = resolve_latest_semver_tag(tag_prefix)
+        validate_latest_tag_format(latest_tag, tag_prefix)
+        previous_tag = f"{tag_prefix}{latest_tag}"
+        next_version = bump_from_previous(latest_tag, resolved_bump)
+        new_tag = f"{tag_prefix}{next_version}"
+        log_info(f"Resolved bump={resolved_bump} from previous={previous_tag} to new={new_tag}")
 
-def env(name: str, default: str = "") -> str:
-    return os.environ.get(name, default)
+        if write_tag:
+            log_info(f"write-tag=true; creating and pushing {new_tag}")
+            push_tag(new_tag)
 
+            if write_major_tag:
+                major_tag = f"{tag_prefix}{next_version.split('.', 1)[0]}"
+                log_info(f"write-major-tag=true; updating floating major tag {major_tag}")
+                push_major_tag(major_tag)
 
-def env_bool(name: str, default: bool = False) -> bool:
-    value = env(name, "true" if default else "false").strip().lower()
-    return value == "true"
-
-
-def normalize_label(label: str) -> str:
-    return label.strip().lower()
-
-
-def parse_ignored_labels(raw_value: str) -> set[str]:
-    if raw_value == "":
-        return set()
-    return {normalize_label(part) for part in raw_value.split(",") if normalize_label(part)}
-
-
-def resolve_bump_from_labels(pr_number: int, labels: list[str], ignored_labels: set[str]) -> str | None:
-    matched_bumps: list[str] = []
-    for label in labels:
-        normalized = normalize_label(label)
-        if not normalized or normalized in ignored_labels:
-            continue
-
-        bump = SEMVER_LABELS.get(normalized)
-        if bump is None:
-            continue
-
-        if bump not in matched_bumps:
-            matched_bumps.append(bump)
-
-    if len(matched_bumps) > 1:
-        raise ActionError(
-            f"Multiple version labels found on PR #{pr_number}. "
-            "Use only one of semver:major, semver:minor, or semver:patch."
+        write_outputs(new_tag, previous_tag, resolved_bump)
+        log_info(
+            "Wrote outputs "
+            f"new-tag={new_tag} previous-tag={previous_tag} version-bump-used={resolved_bump}"
         )
+        return 0
+    except ActionError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    except subprocess.CalledProcessError as exc:
+        output = f"{exc.stdout or ''}{exc.stderr or ''}".strip()
+        if output:
+            print(output, file=sys.stderr)
+        else:
+            print(str(exc), file=sys.stderr)
+        return exc.returncode or 1
 
-    if matched_bumps:
-        return matched_bumps[0]
 
-    return None
+def compute_version_bump(explicit_bump: str, github_token: str, ignored_labels: set[str]) -> str:
+    if explicit_bump:
+        return explicit_bump
 
+    resolved_bump = resolve_version_bump_from_pr_labels(github_token, ignored_labels)
+    if resolved_bump:
+        return resolved_bump
 
-def require_env(var_name: str, error_message: str) -> str:
-    value = env(var_name)
-    if not value:
-        raise ActionError(error_message)
-    return value
+    return "patch"
 
 
 def resolve_version_bump_from_pr_labels(github_token: str, ignored_labels: set[str]) -> str | None:
@@ -88,7 +89,10 @@ def resolve_version_bump_from_pr_labels(github_token: str, ignored_labels: set[s
         "GITHUB_SHA",
         "GITHUB_REPOSITORY and GITHUB_SHA are required to resolve version bump from PR labels.",
     )
-    target_branch = require_env("GITHUB_REF_NAME", "GITHUB_REF_NAME is required to resolve version bump from PR labels.")
+    target_branch = require_env(
+        "GITHUB_REF_NAME",
+        "GITHUB_REF_NAME is required to resolve version bump from PR labels.",
+    )
     api_url = env("GITHUB_API_URL", "https://api.github.com")
     owner, repo = repository.split("/", 1)
 
@@ -117,24 +121,30 @@ def resolve_version_bump_from_pr_labels(github_token: str, ignored_labels: set[s
     return resolve_bump_from_labels(pr_number, labels, ignored_labels)
 
 
-def compute_version_bump(explicit_bump: str, github_token: str, ignored_labels: set[str]) -> str:
-    if explicit_bump:
-        return explicit_bump
+def resolve_bump_from_labels(pr_number: int, labels: list[str], ignored_labels: set[str]) -> str | None:
+    matched_bumps: list[str] = []
+    for label in labels:
+        normalized = normalize_label(label)
+        if not normalized or normalized in ignored_labels:
+            continue
 
-    resolved_bump = resolve_version_bump_from_pr_labels(github_token, ignored_labels)
-    if resolved_bump:
-        return resolved_bump
+        bump = SEMVER_LABELS.get(normalized)
+        if bump is None:
+            continue
 
-    return "patch"
+        if bump not in matched_bumps:
+            matched_bumps.append(bump)
 
+    if len(matched_bumps) > 1:
+        raise ActionError(
+            f"Multiple version labels found on PR #{pr_number}. "
+            "Use only one of semver:major, semver:minor, or semver:patch."
+        )
 
-def git(*args: str, capture_output: bool = False, check: bool = True) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["git", *args],
-        check=check,
-        text=True,
-        capture_output=capture_output,
-    )
+    if matched_bumps:
+        return matched_bumps[0]
+
+    return None
 
 
 def resolve_latest_semver_tag(tag_prefix: str) -> str:
@@ -184,12 +194,6 @@ def bump_from_previous(previous_version: str, bump_type: str) -> str:
     return f"{major}.{minor}.{patch}"
 
 
-def ensure_local_tag_absent(tag_name: str) -> None:
-    existing = git("rev-parse", "-q", "--verify", f"refs/tags/{tag_name}", check=False)
-    if existing.returncode == 0:
-        git("tag", "-d", tag_name, check=False, capture_output=True)
-
-
 def push_tag(tag_name: str) -> None:
     ensure_local_tag_absent(tag_name)
     git("tag", tag_name)
@@ -223,49 +227,49 @@ def write_outputs(new_tag: str, previous_tag: str, version_bump_used: str) -> No
         handle.write(f"version-bump-used={version_bump_used}\n")
 
 
-def main() -> int:
-    version_bump = env("INPUT_VERSION_BUMP")
-    tag_prefix = env("INPUT_TAG_PREFIX", "v")
-    github_token = env("INPUT_GITHUB_TOKEN") or env("GITHUB_TOKEN")
-    ignored_labels = parse_ignored_labels(env("INPUT_IGNORE_LABELS", "dependencies"))
-    write_tag = env_bool("INPUT_WRITE_TAG", default=False)
-    write_major_tag = env_bool("INPUT_WRITE_MAJOR_TAG", default=False)
+def ensure_local_tag_absent(tag_name: str) -> None:
+    existing = git("rev-parse", "-q", "--verify", f"refs/tags/{tag_name}", check=False)
+    if existing.returncode == 0:
+        git("tag", "-d", tag_name, check=False, capture_output=True)
 
-    try:
-        resolved_bump = compute_version_bump(version_bump, github_token, ignored_labels)
-        git("fetch", "--tags", "--force", check=False, capture_output=True)
-        latest_tag = resolve_latest_semver_tag(tag_prefix)
-        validate_latest_tag_format(latest_tag, tag_prefix)
-        previous_tag = f"{tag_prefix}{latest_tag}"
-        next_version = bump_from_previous(latest_tag, resolved_bump)
-        new_tag = f"{tag_prefix}{next_version}"
-        log_info(f"Resolved bump={resolved_bump} from previous={previous_tag} to new={new_tag}")
 
-        if write_tag:
-            log_info(f"write-tag=true; creating and pushing {new_tag}")
-            push_tag(new_tag)
+def git(*args: str, capture_output: bool = False, check: bool = True) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", *args],
+        check=check,
+        text=True,
+        capture_output=capture_output,
+    )
 
-            if write_major_tag:
-                major_tag = f"{tag_prefix}{next_version.split('.', 1)[0]}"
-                log_info(f"write-major-tag=true; updating floating major tag {major_tag}")
-                push_major_tag(major_tag)
 
-        write_outputs(new_tag, previous_tag, resolved_bump)
-        log_info(
-            "Wrote outputs "
-            f"new-tag={new_tag} previous-tag={previous_tag} version-bump-used={resolved_bump}"
-        )
-        return 0
-    except ActionError as exc:
-        print(str(exc), file=sys.stderr)
-        return 1
-    except subprocess.CalledProcessError as exc:
-        output = f"{exc.stdout or ''}{exc.stderr or ''}".strip()
-        if output:
-            print(output, file=sys.stderr)
-        else:
-            print(str(exc), file=sys.stderr)
-        return exc.returncode or 1
+def parse_ignored_labels(raw_value: str) -> set[str]:
+    if raw_value == "":
+        return set()
+    return {normalize_label(part) for part in raw_value.split(",") if normalize_label(part)}
+
+
+def normalize_label(label: str) -> str:
+    return label.strip().lower()
+
+
+def require_env(var_name: str, error_message: str) -> str:
+    value = env(var_name)
+    if not value:
+        raise ActionError(error_message)
+    return value
+
+
+def env_bool(name: str, default: bool = False) -> bool:
+    value = env(name, "true" if default else "false").strip().lower()
+    return value == "true"
+
+
+def env(name: str, default: str = "") -> str:
+    return os.environ.get(name, default)
+
+
+def log_info(message: str) -> None:
+    print(f"[pr-label-semver] {message}")
 
 
 if __name__ == "__main__":
