@@ -4,6 +4,7 @@ set -euo pipefail
 version_bump="${INPUT_VERSION_BUMP:-}"
 tag_prefix="${INPUT_TAG_PREFIX:-v}"
 github_token="${INPUT_GITHUB_TOKEN:-${GITHUB_TOKEN:-}}"
+ignore_labels="${INPUT_IGNORE_LABELS:-dependencies}"
 write_tag="${INPUT_WRITE_TAG:-false}"
 write_major_tag="${INPUT_WRITE_MAJOR_TAG:-false}"
 
@@ -65,12 +66,81 @@ log_info() {
   echo "[simple-semver] $*"
 }
 
+normalize_label() {
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
+}
+
+label_is_ignored() {
+  local candidate="$1"
+  local ignored_label normalized_ignored
+
+  if [[ -z "${ignore_labels}" ]]; then
+    return 1
+  fi
+
+  IFS=',' read -r -a ignored_labels_array <<< "${ignore_labels}"
+  for ignored_label in "${ignored_labels_array[@]}"; do
+    normalized_ignored="$(normalize_label "${ignored_label}")"
+    if [[ -n "${normalized_ignored}" ]] && [[ "${candidate}" == "${normalized_ignored}" ]]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+resolve_bump_from_labels() {
+  local pr_number="$1"
+  local labels="$2"
+  local label normalized_label bump
+  local -a matched_bumps=()
+
+  while IFS= read -r label; do
+    normalized_label="$(normalize_label "${label}")"
+
+    if [[ -z "${normalized_label}" ]] || label_is_ignored "${normalized_label}"; then
+      continue
+    fi
+
+    case "${normalized_label}" in
+      semver:major|major)
+        bump="major"
+        ;;
+      semver:minor|minor)
+        bump="minor"
+        ;;
+      semver:patch|patch)
+        bump="patch"
+        ;;
+      *)
+        continue
+        ;;
+    esac
+
+    if [[ ! " ${matched_bumps[*]} " =~ (^|[[:space:]])${bump}($|[[:space:]]) ]]; then
+      matched_bumps+=("${bump}")
+    fi
+  done <<< "${labels}"
+
+  if [[ "${#matched_bumps[@]}" -gt 1 ]]; then
+    echo "Multiple version labels found on PR #${pr_number}. Use only one of semver:major, semver:minor, or semver:patch." >&2
+    exit 1
+  fi
+
+  if [[ "${#matched_bumps[@]}" -eq 1 ]]; then
+    printf '%s\n' "${matched_bumps[0]}"
+    return 0
+  fi
+
+  return 1
+}
+
 resolve_version_bump_from_pr_labels() {
   if ! validate_label_resolution_prereqs; then
     return 2
   fi
 
-  local owner repo target_branch api_url pulls_json selected_pr_number labels label_matches
+  local owner repo target_branch api_url pulls_json selected_pr_number labels
   owner="${GITHUB_REPOSITORY%%/*}"
   repo="${GITHUB_REPOSITORY#*/}"
   api_url="${GITHUB_API_URL:-https://api.github.com}"
@@ -93,22 +163,7 @@ resolve_version_bump_from_pr_labels() {
   fi
 
   labels="$(printf '%s' "${pulls_json}" | jq -r --arg b "${target_branch}" '[.[] | select(.base.ref == $b)][0].labels[]?.name // empty')"
-  label_matches="$(printf '%s\n' "${labels}" | grep -E '^(major|minor|patch)$' || true)"
-
-  local count
-  count="$(printf '%s\n' "${label_matches}" | sed '/^$/d' | wc -l | tr -d ' ')"
-
-  if [[ "${count}" -gt 1 ]]; then
-    echo "Multiple version labels found on PR #${selected_pr_number}. Use only one of major/minor/patch." >&2
-    exit 1
-  fi
-
-  if [[ "${count}" -eq 1 ]]; then
-    printf '%s\n' "${label_matches}"
-    return 0
-  fi
-
-  return 1
+  resolve_bump_from_labels "${selected_pr_number}" "${labels}"
 }
 
 validate_label_resolution_prereqs() {

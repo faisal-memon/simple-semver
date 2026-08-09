@@ -2,7 +2,7 @@
 
 Use pull request labels to update semantic version tags.
 
-- Labels `major`, `minor`, or `patch` update corresponding part of semantic version
+- Labels `semver:major`, `semver:minor`, or `semver:patch` update the corresponding part of semantic version
 - Defaults to `patch` if no label is specified
 - Automatic tracking of floating major tag to latest tag, i.e. `v1` -> `v1.2.3`
 
@@ -38,6 +38,7 @@ jobs:
           write-tag: "true"
           write-major-tag: "true"
           github-token: ${{ github.token }}
+          ignore-labels: "dependencies"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
@@ -58,6 +59,7 @@ jobs:
 | Input | Default | Description |
 | --- | --- | --- |
 | `github-token` | `""` | Token used to query PR labels. Required when `version-bump` is empty (or provide `GITHUB_TOKEN` env). |
+| `ignore-labels` | `"dependencies"` | Comma-separated PR labels to ignore before resolving semver labels. Set empty to ignore nothing. |
 | `tag-prefix` | `v` | Prefix to apply to tags (for example `v1.2.3`). |
 | `version-bump` | `""` | Explicit bump override: `major`, `minor`, or `patch`. Useful for `workflow_dispatch` or manual override. |
 | `write-major-tag` | `"false"` | When `true` and `write-tag` is `true`, moves and pushes floating major tag (for example `v1` or `v0`). |
@@ -75,6 +77,10 @@ The version always follows `major`.`minor`.`patch` format. Each time this action
 
 - Fetches the latest semantic-version tag matching the prefix (`vX.Y.Z`). If none exist, starts from `v0.0.0`
 - If `version-bump` is provided, it is used directly
-- Otherwise, the action checks labels (`major`, `minor`, `patch`) on the PR associated with the commit
+- Otherwise, the action checks labels (`semver:major`, `semver:minor`, `semver:patch`) on the PR associated with the commit
 - If no matching label is found, it defaults to `patch`
 - Selected part of tag is bumped
+
+Compatibility note: plain `major`, `minor`, and `patch` labels are still accepted for now, but `semver:*` labels are the preferred format.
+
+Ignored labels are filtered out before semver labels are evaluated. By default, the action ignores the `dependencies` label.

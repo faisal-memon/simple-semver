@@ -15,6 +15,10 @@ inputs:
     description: GitHub token used to resolve PR labels for bump selection.
     required: false
     default: ""
+  ignore-labels:
+    description: Comma-separated PR labels to ignore before resolving semver labels. Set empty to ignore nothing.
+    required: false
+    default: "dependencies"
   write-tag:
     description: When true, create and push the computed tag to origin with retries on tag collisions.
     required: false
@@ -45,6 +49,7 @@ runs:
         INPUT_VERSION_BUMP: ${{ inputs.version-bump }}
         INPUT_TAG_PREFIX: ${{ inputs.tag-prefix }}
         INPUT_GITHUB_TOKEN: ${{ inputs.github-token }}
+        INPUT_IGNORE_LABELS: ${{ inputs.ignore-labels }}
         INPUT_WRITE_TAG: ${{ inputs.write-tag }}
         INPUT_WRITE_MAJOR_TAG: ${{ inputs.write-major-tag }}
       run: "${{ github.action_path }}/bump_semver.sh"
