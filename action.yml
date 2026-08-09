@@ -1,5 +1,5 @@
 name: pr-label-semver
-description: Simple semantic version bump action with optional retry-safe tag writes.
+description: Semantic version bump action driven by PR labels.
 author: Faisal Memon
 
 inputs:
@@ -20,7 +20,7 @@ inputs:
     required: false
     default: "dependencies"
   write-tag:
-    description: When true, create and push the computed tag to origin with retries on tag collisions.
+    description: When true, create and push the computed tag to origin. If the tag already exists, the action fails and points to workflow concurrency.
     required: false
     default: "true"
   write-major-tag:
@@ -52,7 +52,7 @@ runs:
         INPUT_IGNORE_LABELS: ${{ inputs.ignore-labels }}
         INPUT_WRITE_TAG: ${{ inputs.write-tag }}
         INPUT_WRITE_MAJOR_TAG: ${{ inputs.write-major-tag }}
-      run: "${{ github.action_path }}/bump_semver.sh"
+      run: python3 "${{ github.action_path }}/bump_semver.py"
 
 branding:
   icon: tag

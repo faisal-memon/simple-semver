@@ -50,6 +50,7 @@ jobs:
 
 > [!NOTE]
 > - Ensure `actions/checkout` uses `fetch-depth: 0`
+> - GitHub-hosted runners already include `python3`; self-hosted runners need Python 3 available on `PATH`
 > - Requires workflow permissions: `contents: write` to be able to write the semantic version tag
 > - Requires `pull-requests: read` when `version-bump` is empty (PR-label resolution path)
 > - Must configure workflow `concurrency` with `cancel-in-progress: false` to avoid tag collisions
@@ -80,6 +81,5 @@ The version always follows `major`.`minor`.`patch` format. Each time this action
 - Otherwise, the action checks labels (`semver:major`, `semver:minor`, `semver:patch`) on the PR associated with the commit
 - If no matching label is found, it defaults to `patch`
 - Selected part of tag is bumped
-
 
 Ignored labels are filtered out before semver labels are evaluated. By default, the action ignores the `dependencies` label.
