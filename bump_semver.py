@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import re
 import subprocess
 import sys
 
 from github_labels import ActionError, parse_ignored_labels, resolve_version_bump_from_pr_labels
-
-SEMVER_RE = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
+from semver import bump_from_previous, resolve_latest_semver_tag, validate_latest_tag_format
 
 
 def main() -> int:
@@ -21,7 +19,7 @@ def main() -> int:
     try:
         resolved_bump = compute_version_bump(version_bump, github_token, ignored_labels)
         git("fetch", "--tags", "--force", check=False, capture_output=True)
-        latest_tag = resolve_latest_semver_tag(tag_prefix)
+        latest_tag = resolve_latest_semver_tag(tag_prefix, list_tags(tag_prefix))
         validate_latest_tag_format(latest_tag, tag_prefix)
         previous_tag = f"{tag_prefix}{latest_tag}"
         next_version = bump_from_previous(latest_tag, resolved_bump)
@@ -66,7 +64,7 @@ def compute_version_bump(explicit_bump: str, github_token: str, ignored_labels: 
     return "patch"
 
 
-def resolve_latest_semver_tag(tag_prefix: str) -> str:
+def list_tags(tag_prefix: str) -> list[str]:
     result = git(
         "tag",
         "-l",
@@ -74,43 +72,7 @@ def resolve_latest_semver_tag(tag_prefix: str) -> str:
         "--sort=-version:refname",
         capture_output=True,
     )
-    tags = [line.strip() for line in result.stdout.splitlines() if line.strip()]
-    if not tags:
-        return "0.0.0"
-
-    return tags[0][len(tag_prefix):]
-
-
-def validate_latest_tag_format(latest: str, tag_prefix: str) -> None:
-    if not SEMVER_RE.match(latest):
-        raise ActionError(
-            f"Latest tag must be semantic version format {tag_prefix}X.Y.Z, "
-            f"but got {tag_prefix}{latest}. Fix tags or set an explicit version-bump."
-        )
-
-
-def bump_from_previous(previous_version: str, bump_type: str) -> str:
-    if not SEMVER_RE.match(previous_version):
-        raise ActionError(f"Previous version must be semantic version format X.Y.Z, but got {previous_version}.")
-
-    major_str, minor_str, patch_str = previous_version.split(".")
-    major = int(major_str)
-    minor = int(minor_str)
-    patch = int(patch_str)
-
-    if bump_type == "major":
-        major += 1
-        minor = 0
-        patch = 0
-    elif bump_type == "minor":
-        minor += 1
-        patch = 0
-    elif bump_type == "patch":
-        patch += 1
-    else:
-        raise ActionError(f"Unsupported version bump: {bump_type}")
-
-    return f"{major}.{minor}.{patch}"
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
 
 def push_tag(tag_name: str) -> None:

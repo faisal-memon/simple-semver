@@ -2,6 +2,7 @@ import unittest
 
 import bump_semver
 import github_labels
+import semver
 
 
 class ParseIgnoredLabelsTests(unittest.TestCase):
@@ -43,17 +44,26 @@ class ResolveBumpFromLabelsTests(unittest.TestCase):
 
 class BumpFromPreviousTests(unittest.TestCase):
     def test_patch_bump(self):
-        self.assertEqual(bump_semver.bump_from_previous("1.2.3", "patch"), "1.2.4")
+        self.assertEqual(semver.bump_from_previous("1.2.3", "patch"), "1.2.4")
 
     def test_minor_bump(self):
-        self.assertEqual(bump_semver.bump_from_previous("1.2.3", "minor"), "1.3.0")
+        self.assertEqual(semver.bump_from_previous("1.2.3", "minor"), "1.3.0")
 
     def test_major_bump(self):
-        self.assertEqual(bump_semver.bump_from_previous("1.2.3", "major"), "2.0.0")
+        self.assertEqual(semver.bump_from_previous("1.2.3", "major"), "2.0.0")
 
     def test_rejects_invalid_bump(self):
         with self.assertRaisesRegex(github_labels.ActionError, "Unsupported version bump"):
-            bump_semver.bump_from_previous("1.2.3", "banana")
+            semver.bump_from_previous("1.2.3", "banana")
+
+
+class ResolveLatestSemverTagTests(unittest.TestCase):
+    def test_returns_zero_when_no_tags_match(self):
+        self.assertEqual(semver.resolve_latest_semver_tag("v", []), "0.0.0")
+
+    def test_returns_first_sorted_matching_tag_without_prefix(self):
+        tags = ["v2.3.4", "v2.3.3", "other"]
+        self.assertEqual(semver.resolve_latest_semver_tag("v", tags), "2.3.4")
 
 
 if __name__ == "__main__":
