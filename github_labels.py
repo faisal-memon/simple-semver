@@ -32,6 +32,18 @@ def resolve_version_bump_from_pr_labels(github_token: str, ignored_labels: set[s
         "GITHUB_REF_NAME",
         "GITHUB_REF_NAME is required to resolve version bump from PR labels.",
     )
+
+    pulls = get_associated_pull_requests(github_token, repository, sha)
+    selected_pr = select_pull_request_for_branch(pulls, target_branch)
+    if selected_pr is None:
+        return None
+
+    pr_number = get_pull_request_number(selected_pr)
+    labels = get_pull_request_labels(selected_pr)
+    return resolve_bump_from_labels(pr_number, labels, ignored_labels)
+
+
+def get_associated_pull_requests(github_token: str, repository: str, sha: str) -> list[dict]:
     api_url = env("GITHUB_API_URL", "https://api.github.com")
     owner, repo = repository.split("/", 1)
 
@@ -45,19 +57,23 @@ def resolve_version_bump_from_pr_labels(github_token: str, ignored_labels: set[s
 
     try:
         with urllib.request.urlopen(request) as response:
-            pulls = json.load(response)
+            return json.load(response)
     except urllib.error.HTTPError as exc:
         raise ActionError(f"Failed to query pull requests for commit {sha}: HTTP {exc.code}.") from exc
     except urllib.error.URLError as exc:
         raise ActionError(f"Failed to query pull requests for commit {sha}: {exc.reason}.") from exc
 
-    selected_pr = next((pull for pull in pulls if pull.get("base", {}).get("ref") == target_branch), None)
-    if selected_pr is None:
-        return None
 
-    pr_number = selected_pr.get("number")
-    labels = [label.get("name", "") for label in selected_pr.get("labels", [])]
-    return resolve_bump_from_labels(pr_number, labels, ignored_labels)
+def select_pull_request_for_branch(pulls: list[dict], target_branch: str) -> dict | None:
+    return next((pull for pull in pulls if pull.get("base", {}).get("ref") == target_branch), None)
+
+
+def get_pull_request_number(pull_request: dict) -> int:
+    return pull_request.get("number")
+
+
+def get_pull_request_labels(pull_request: dict) -> list[str]:
+    return [label.get("name", "") for label in pull_request.get("labels", [])]
 
 
 def resolve_bump_from_labels(pr_number: int, labels: list[str], ignored_labels: set[str]) -> str | None:
