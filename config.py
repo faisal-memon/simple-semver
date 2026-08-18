@@ -4,7 +4,6 @@ import os
 from dataclasses import dataclass
 
 from github_labels import ActionError, parse_ignored_labels
-from semver import SemverTags
 
 
 @dataclass
@@ -18,7 +17,7 @@ class Config:
     ignored_labels: set[str]
     write_tag: bool
     write_major_tag: bool
-    semver_tags: SemverTags
+    tag_prefix: str
 
     @classmethod
     def from_env(cls) -> Config:
@@ -32,7 +31,7 @@ class Config:
             ignored_labels=parse_ignored_labels(env("INPUT_IGNORE_LABELS", "dependencies")),
             write_tag=env_bool("INPUT_WRITE_TAG", default=False),
             write_major_tag=env_bool("INPUT_WRITE_MAJOR_TAG", default=False),
-            semver_tags=SemverTags(env("INPUT_TAG_PREFIX", "v")),
+            tag_prefix=env("INPUT_TAG_PREFIX", "v"),
         )
 
     def validate(self) -> None:

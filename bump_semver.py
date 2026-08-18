@@ -6,16 +6,18 @@ import sys
 
 from config import Config, env
 from github_labels import ActionError, resolve_version_bump_from_pr_labels
+from semver import SemverTags
 
 
 def main() -> int:
     config = Config.from_env()
+    semver_tags = SemverTags(config.tag_prefix)
 
     try:
         config.validate()
         resolved_bump = compute_version_bump(config)
-        previous_tag = get_latest_semver_tag(config.semver_tags)
-        new_tag = config.semver_tags.bump_tag(previous_tag, resolved_bump)
+        previous_tag = get_latest_semver_tag(semver_tags)
+        new_tag = semver_tags.bump_tag(previous_tag, resolved_bump)
         log_info(f"Resolved bump={resolved_bump} from previous={previous_tag} to new={new_tag}")
 
         if config.write_tag:
@@ -23,7 +25,7 @@ def main() -> int:
             push_tag(new_tag)
 
             if config.write_major_tag:
-                major_tag = config.semver_tags.major_tag_for(new_tag)
+                major_tag = semver_tags.major_tag_for(new_tag)
                 log_info(f"write-major-tag=true; updating floating major tag {major_tag}")
                 push_major_tag(major_tag)
 
@@ -56,7 +58,7 @@ def compute_version_bump(config: Config) -> str:
     return "patch"
 
 
-def get_latest_semver_tag(semver_tags) -> str:
+def get_latest_semver_tag(semver_tags: SemverTags) -> str:
     fetch_tags()
     tags = list_semver_tags(semver_tags.tag_prefix)
     latest_tag = semver_tags.resolve_latest_tag(tags)
