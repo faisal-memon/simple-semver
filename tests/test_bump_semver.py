@@ -1,4 +1,5 @@
 import unittest
+from types import SimpleNamespace
 
 import github_labels
 from semver import SemverTags
@@ -56,11 +57,20 @@ class SemverTagsTests(unittest.TestCase):
             SemverTags("v").bump_tag("v1.2.3", "banana")
 
     def test_get_latest_tag_returns_zero_baseline_with_prefix(self):
-        self.assertEqual(SemverTags("v").get_latest_tag([]), "v0.0.0")
+        def git_runner(*args, **kwargs):
+            if args[0] == "fetch":
+                return SimpleNamespace(stdout="")
+            return SimpleNamespace(stdout="")
+
+        self.assertEqual(SemverTags("v").get_latest_tag(git_runner), "v0.0.0")
 
     def test_get_latest_tag_returns_first_sorted_matching_tag(self):
-        tags = ["v2.3.4", "v2.3.3", "other"]
-        self.assertEqual(SemverTags("v").get_latest_tag(tags), "v2.3.4")
+        def git_runner(*args, **kwargs):
+            if args[0] == "fetch":
+                return SimpleNamespace(stdout="")
+            return SimpleNamespace(stdout="v2.3.4\nv2.3.3\nother\n")
+
+        self.assertEqual(SemverTags("v").get_latest_tag(git_runner), "v2.3.4")
 
     def test_major_tag_for(self):
         self.assertEqual(SemverTags("v").major_tag_for("v2.3.4"), "v2")

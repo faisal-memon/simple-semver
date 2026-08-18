@@ -16,7 +16,7 @@ def main() -> int:
     try:
         config.validate()
         bump_type = compute_bump_type(config)
-        previous_tag = get_latest_semver_tag(semver_tags)
+        previous_tag = semver_tags.get_latest_tag(git)
         new_tag = semver_tags.bump_tag(previous_tag, bump_type)
         log_info(f"Resolved bump={bump_type} from previous={previous_tag} to new={new_tag}")
 
@@ -56,28 +56,6 @@ def compute_bump_type(config: Config) -> str:
         return bump_type
 
     return "patch"
-
-
-def get_latest_semver_tag(semver_tags: SemverTags) -> str:
-    fetch_tags()
-    latest_tag = semver_tags.get_latest_tag(list_semver_tags(semver_tags.tag_prefix))
-    semver_tags.validate_tag(latest_tag)
-    return latest_tag
-
-
-def fetch_tags() -> None:
-    git("fetch", "--tags", "--force", check=False, capture_output=True)
-
-
-def list_semver_tags(tag_prefix: str) -> list[str]:
-    result = git(
-        "tag",
-        "-l",
-        f"{tag_prefix}[0-9]*.[0-9]*.[0-9]*",
-        "--sort=-version:refname",
-        capture_output=True,
-    )
-    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
 
 def push_tag(tag_name: str) -> None:
