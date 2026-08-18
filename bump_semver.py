@@ -11,13 +11,14 @@ from semver import SemverTags
 def main() -> int:
     version_bump = env("INPUT_VERSION_BUMP")
     github_token = env("INPUT_GITHUB_TOKEN") or env("GITHUB_TOKEN")
+    api_url = env("GITHUB_API_URL", "https://api.github.com")
     ignored_labels = parse_ignored_labels(env("INPUT_IGNORE_LABELS", "dependencies"))
     write_tag = env_bool("INPUT_WRITE_TAG", default=False)
     write_major_tag = env_bool("INPUT_WRITE_MAJOR_TAG", default=False)
     semver_tags = SemverTags(env("INPUT_TAG_PREFIX", "v"))
 
     try:
-        resolved_bump = compute_version_bump(version_bump, github_token, ignored_labels)
+        resolved_bump = compute_version_bump(version_bump, github_token, api_url, ignored_labels)
         previous_tag = get_latest_semver_tag(semver_tags)
         new_tag = semver_tags.bump_tag(previous_tag, resolved_bump)
         log_info(f"Resolved bump={resolved_bump} from previous={previous_tag} to new={new_tag}")
@@ -49,11 +50,11 @@ def main() -> int:
         return exc.returncode or 1
 
 
-def compute_version_bump(explicit_bump: str, github_token: str, ignored_labels: set[str]) -> str:
+def compute_version_bump(explicit_bump: str, github_token: str, api_url: str, ignored_labels: set[str]) -> str:
     if explicit_bump:
         return explicit_bump
 
-    resolved_bump = resolve_version_bump_from_pr_labels(github_token, ignored_labels)
+    resolved_bump = resolve_version_bump_from_pr_labels(github_token, api_url, ignored_labels)
     if resolved_bump:
         return resolved_bump
 

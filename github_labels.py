@@ -16,7 +16,7 @@ class ActionError(Exception):
     pass
 
 
-def resolve_version_bump_from_pr_labels(github_token: str, ignored_labels: set[str]) -> str | None:
+def resolve_version_bump_from_pr_labels(github_token: str, api_url: str, ignored_labels: set[str]) -> str | None:
     if not github_token:
         raise ActionError("github-token (or GITHUB_TOKEN) is required when version-bump is empty.")
 
@@ -33,7 +33,7 @@ def resolve_version_bump_from_pr_labels(github_token: str, ignored_labels: set[s
         "GITHUB_REF_NAME is required to resolve version bump from PR labels.",
     )
 
-    pulls = get_associated_pull_requests(github_token, repository, sha)
+    pulls = get_associated_pull_requests(github_token, api_url, repository, sha)
     selected_pr = select_pull_request_for_branch(pulls, target_branch)
     if selected_pr is None:
         return None
@@ -43,8 +43,7 @@ def resolve_version_bump_from_pr_labels(github_token: str, ignored_labels: set[s
     return resolve_bump_from_labels(pr_number, labels, ignored_labels)
 
 
-def get_associated_pull_requests(github_token: str, repository: str, sha: str) -> list[dict]:
-    api_url = env("GITHUB_API_URL", "https://api.github.com")
+def get_associated_pull_requests(github_token: str, api_url: str, repository: str, sha: str) -> list[dict]:
     owner, repo = repository.split("/", 1)
 
     request = urllib.request.Request(
