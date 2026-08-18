@@ -3,56 +3,13 @@ from __future__ import annotations
 
 import subprocess
 import sys
-from dataclasses import dataclass
 
-from github_labels import ActionError, parse_ignored_labels, resolve_version_bump_from_pr_labels
-from semver import SemverTags
-
-
-@dataclass
-class ActionConfig:
-    version_bump: str
-    github_token: str
-    api_url: str
-    repository: str
-    sha: str
-    target_branch: str
-    ignored_labels: set[str]
-    write_tag: bool
-    write_major_tag: bool
-    semver_tags: SemverTags
-
-    @classmethod
-    def from_env(cls) -> ActionConfig:
-        return cls(
-            version_bump=env("INPUT_VERSION_BUMP"),
-            github_token=env_first("INPUT_GITHUB_TOKEN", "GITHUB_TOKEN"),
-            api_url=env("GITHUB_API_URL", "https://api.github.com"),
-            repository=env("GITHUB_REPOSITORY"),
-            sha=env("GITHUB_SHA"),
-            target_branch=env("GITHUB_REF_NAME"),
-            ignored_labels=parse_ignored_labels(env("INPUT_IGNORE_LABELS", "dependencies")),
-            write_tag=env_bool("INPUT_WRITE_TAG", default=False),
-            write_major_tag=env_bool("INPUT_WRITE_MAJOR_TAG", default=False),
-            semver_tags=SemverTags(env("INPUT_TAG_PREFIX", "v")),
-        )
-
-    def validate(self) -> None:
-        if self.version_bump:
-            return
-
-        if not self.github_token:
-            raise ActionError("github-token (or GITHUB_TOKEN) is required when version-bump is empty.")
-        if not self.repository:
-            raise ActionError("GITHUB_REPOSITORY is required when version-bump is empty.")
-        if not self.sha:
-            raise ActionError("GITHUB_SHA is required when version-bump is empty.")
-        if not self.target_branch:
-            raise ActionError("GITHUB_REF_NAME is required when version-bump is empty.")
+from config import Config, env
+from github_labels import ActionError, resolve_version_bump_from_pr_labels
 
 
 def main() -> int:
-    config = ActionConfig.from_env()
+    config = Config.from_env()
 
     try:
         config.validate()
@@ -88,7 +45,7 @@ def main() -> int:
         return exc.returncode or 1
 
 
-def compute_version_bump(config: ActionConfig) -> str:
+def compute_version_bump(config: Config) -> str:
     if config.version_bump:
         return config.version_bump
 
@@ -99,7 +56,7 @@ def compute_version_bump(config: ActionConfig) -> str:
     return "patch"
 
 
-def get_latest_semver_tag(semver_tags: SemverTags) -> str:
+def get_latest_semver_tag(semver_tags) -> str:
     fetch_tags()
     tags = list_semver_tags(semver_tags.tag_prefix)
     latest_tag = semver_tags.resolve_latest_tag(tags)
@@ -171,23 +128,6 @@ def git(*args: str, capture_output: bool = False, check: bool = True) -> subproc
         text=True,
         capture_output=capture_output,
     )
-
-
-def env_first(*names: str) -> str:
-    for name in names:
-        value = env(name)
-        if value:
-            return value
-    return ""
-
-
-def env_bool(name: str, default: bool = False) -> bool:
-    value = env(name, "true" if default else "false").strip().lower()
-    return value == "true"
-
-
-def env(name: str, default: str = "") -> str:
-    return os.environ.get(name, default)
 
 
 def log_info(message: str) -> None:
