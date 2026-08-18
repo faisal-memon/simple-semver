@@ -6,11 +6,13 @@ import sys
 
 from config import Config, env
 from github_labels import ActionError, resolve_version_bump_from_pr_labels
+from git_ops import Git
 from semver import SemverTags
 
 
 def main() -> int:
     config = Config.from_env()
+    git = Git()
     semver_tags = SemverTags(config.tag_prefix)
 
     try:
@@ -22,12 +24,12 @@ def main() -> int:
 
         if config.write_tag:
             log_info(f"write-tag=true; creating and pushing {new_tag}")
-            push_tag(new_tag)
+            git.push_tag(new_tag)
 
             if config.write_major_tag:
                 major_tag = semver_tags.major_tag_for(new_tag)
                 log_info(f"write-major-tag=true; updating floating major tag {major_tag}")
-                push_major_tag(major_tag)
+                git.push_major_tag(major_tag)
 
         write_outputs(new_tag, previous_tag, bump_type)
         log_info(
@@ -58,31 +60,6 @@ def compute_bump_type(config: Config) -> str:
     return "patch"
 
 
-def push_tag(tag_name: str) -> None:
-    ensure_local_tag_absent(tag_name)
-    git("tag", tag_name)
-    result = git("push", "origin", f"refs/tags/{tag_name}", check=False, capture_output=True)
-    if result.returncode == 0:
-        return
-
-    ensure_local_tag_absent(tag_name)
-    output = f"{result.stdout}{result.stderr}".strip()
-    if "already exists" in output:
-        raise ActionError(
-            f"Tag collision for {tag_name}. Enable workflow concurrency (cancel-in-progress: false) and rerun.\n{output}"
-        )
-
-    raise ActionError(output or f"Failed to push tag {tag_name}.")
-
-
-def push_major_tag(tag_name: str) -> None:
-    git("tag", "-f", tag_name, check=False, capture_output=True)
-    result = git("push", "-f", "origin", f"refs/tags/{tag_name}", check=False, capture_output=True)
-    if result.returncode != 0:
-        output = f"{result.stdout}{result.stderr}".strip()
-        raise ActionError(output or f"Failed to push tag {tag_name}.")
-
-
 def write_outputs(new_tag: str, previous_tag: str, version_bump_used: str) -> None:
     output_path = env("GITHUB_OUTPUT")
     if not output_path:
@@ -92,21 +69,6 @@ def write_outputs(new_tag: str, previous_tag: str, version_bump_used: str) -> No
         handle.write(f"new-tag={new_tag}\n")
         handle.write(f"previous-tag={previous_tag}\n")
         handle.write(f"version-bump-used={version_bump_used}\n")
-
-
-def ensure_local_tag_absent(tag_name: str) -> None:
-    existing = git("rev-parse", "-q", "--verify", f"refs/tags/{tag_name}", check=False)
-    if existing.returncode == 0:
-        git("tag", "-d", tag_name, check=False, capture_output=True)
-
-
-def git(*args: str, capture_output: bool = False, check: bool = True) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["git", *args],
-        check=check,
-        text=True,
-        capture_output=capture_output,
-    )
 
 
 def log_info(message: str) -> None:

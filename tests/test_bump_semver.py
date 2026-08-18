@@ -1,6 +1,4 @@
 import unittest
-from types import SimpleNamespace
-
 import github_labels
 from semver import SemverTags
 
@@ -57,23 +55,33 @@ class SemverTagsTests(unittest.TestCase):
             SemverTags("v").bump_tag("v1.2.3", "banana")
 
     def test_get_latest_tag_returns_zero_baseline_with_prefix(self):
-        def git_runner(*args, **kwargs):
-            if args[0] == "fetch":
-                return SimpleNamespace(stdout="")
-            return SimpleNamespace(stdout="")
+        git = FakeGit([])
 
-        self.assertEqual(SemverTags("v").get_latest_tag(git_runner), "v0.0.0")
+        self.assertEqual(SemverTags("v").get_latest_tag(git), "v0.0.0")
+        self.assertTrue(git.fetch_tags_called)
+        self.assertEqual(git.patterns, ["v[0-9]*.[0-9]*.[0-9]*"])
 
     def test_get_latest_tag_returns_first_sorted_matching_tag(self):
-        def git_runner(*args, **kwargs):
-            if args[0] == "fetch":
-                return SimpleNamespace(stdout="")
-            return SimpleNamespace(stdout="v2.3.4\nv2.3.3\nother\n")
+        git = FakeGit(["v2.3.4", "v2.3.3", "other"])
 
-        self.assertEqual(SemverTags("v").get_latest_tag(git_runner), "v2.3.4")
+        self.assertEqual(SemverTags("v").get_latest_tag(git), "v2.3.4")
 
     def test_major_tag_for(self):
         self.assertEqual(SemverTags("v").major_tag_for("v2.3.4"), "v2")
+
+
+class FakeGit:
+    def __init__(self, tags):
+        self.tags = tags
+        self.fetch_tags_called = False
+        self.patterns = []
+
+    def fetch_tags(self):
+        self.fetch_tags_called = True
+
+    def list_tags(self, pattern):
+        self.patterns.append(pattern)
+        return self.tags
 
 
 if __name__ == "__main__":

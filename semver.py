@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-from typing import Callable
 
 from github_labels import ActionError
 
@@ -12,16 +11,9 @@ class SemverTags:
     def __init__(self, tag_prefix: str) -> None:
         self.tag_prefix = tag_prefix
 
-    def get_latest_tag(self, git_runner: Callable[..., object]) -> str:
-        git_runner("fetch", "--tags", "--force", check=False, capture_output=True)
-        result = git_runner(
-            "tag",
-            "-l",
-            f"{self.tag_prefix}[0-9]*.[0-9]*.[0-9]*",
-            "--sort=-version:refname",
-            capture_output=True,
-        )
-        tags = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    def get_latest_tag(self, git) -> str:
+        git.fetch_tags()
+        tags = git.list_tags(f"{self.tag_prefix}[0-9]*.[0-9]*.[0-9]*")
         matching_tags = [tag for tag in tags if self._matches_prefixed_semver(tag)]
         if not matching_tags:
             return f"{self.tag_prefix}0.0.0"
