@@ -25,9 +25,7 @@ class SemverTags:
         matching_tags = [tag for tag in tags if self._matches_prefixed_semver(tag)]
         if not matching_tags:
             return f"{self.tag_prefix}0.0.0"
-        latest_tag = matching_tags[0]
-        self.validate_tag(latest_tag)
-        return latest_tag
+        return matching_tags[0]
 
     def bump_tag(self, latest_tag: str, bump_type: str) -> str:
         version = self._strip_prefix(latest_tag)
