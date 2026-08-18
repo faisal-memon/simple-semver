@@ -60,8 +60,7 @@ def compute_bump_type(config: Config) -> str:
 
 def get_latest_semver_tag(semver_tags: SemverTags) -> str:
     fetch_tags()
-    tags = list_semver_tags(semver_tags.tag_prefix)
-    latest_tag = semver_tags.resolve_latest_tag(tags)
+    latest_tag = semver_tags.get_latest_tag(list_semver_tags(semver_tags.tag_prefix))
     semver_tags.validate_tag(latest_tag)
     return latest_tag
 

@@ -55,12 +55,12 @@ class SemverTagsTests(unittest.TestCase):
         with self.assertRaisesRegex(github_labels.ActionError, "Unsupported version bump"):
             SemverTags("v").bump_tag("v1.2.3", "banana")
 
-    def test_resolve_latest_tag_returns_zero_baseline_with_prefix(self):
-        self.assertEqual(SemverTags("v").resolve_latest_tag([]), "v0.0.0")
+    def test_get_latest_tag_returns_zero_baseline_with_prefix(self):
+        self.assertEqual(SemverTags("v").get_latest_tag([]), "v0.0.0")
 
-    def test_resolve_latest_tag_returns_first_sorted_matching_tag(self):
+    def test_get_latest_tag_returns_first_sorted_matching_tag(self):
         tags = ["v2.3.4", "v2.3.3", "other"]
-        self.assertEqual(SemverTags("v").resolve_latest_tag(tags), "v2.3.4")
+        self.assertEqual(SemverTags("v").get_latest_tag(tags), "v2.3.4")
 
     def test_major_tag_for(self):
         self.assertEqual(SemverTags("v").major_tag_for("v2.3.4"), "v2")
