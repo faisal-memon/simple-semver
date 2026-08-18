@@ -5,23 +5,21 @@ import subprocess
 import sys
 
 from github_labels import ActionError, parse_ignored_labels, resolve_version_bump_from_pr_labels
-from semver import bump_from_previous, resolve_latest_semver_tag, validate_latest_tag_format
+from semver import SemverTags
 
 
 def main() -> int:
     version_bump = env("INPUT_VERSION_BUMP")
-    tag_prefix = env("INPUT_TAG_PREFIX", "v")
     github_token = env("INPUT_GITHUB_TOKEN") or env("GITHUB_TOKEN")
     ignored_labels = parse_ignored_labels(env("INPUT_IGNORE_LABELS", "dependencies"))
     write_tag = env_bool("INPUT_WRITE_TAG", default=False)
     write_major_tag = env_bool("INPUT_WRITE_MAJOR_TAG", default=False)
+    semver_tags = SemverTags(env("INPUT_TAG_PREFIX", "v"))
 
     try:
         resolved_bump = compute_version_bump(version_bump, github_token, ignored_labels)
-        latest_tag = get_latest_semver_tag(tag_prefix)
-        previous_tag = f"{tag_prefix}{latest_tag}"
-        next_version = bump_from_previous(latest_tag, resolved_bump)
-        new_tag = f"{tag_prefix}{next_version}"
+        previous_tag = get_latest_semver_tag(semver_tags)
+        new_tag = semver_tags.bump_tag(previous_tag, resolved_bump)
         log_info(f"Resolved bump={resolved_bump} from previous={previous_tag} to new={new_tag}")
 
         if write_tag:
@@ -29,7 +27,7 @@ def main() -> int:
             push_tag(new_tag)
 
             if write_major_tag:
-                major_tag = f"{tag_prefix}{next_version.split('.', 1)[0]}"
+                major_tag = semver_tags.major_tag_for(new_tag)
                 log_info(f"write-major-tag=true; updating floating major tag {major_tag}")
                 push_major_tag(major_tag)
 
@@ -62,11 +60,11 @@ def compute_version_bump(explicit_bump: str, github_token: str, ignored_labels: 
     return "patch"
 
 
-def get_latest_semver_tag(tag_prefix: str) -> str:
+def get_latest_semver_tag(semver_tags: SemverTags) -> str:
     fetch_tags()
-    semver_tags = list_semver_tags(tag_prefix)
-    latest_tag = resolve_latest_semver_tag(tag_prefix, semver_tags)
-    validate_latest_tag_format(latest_tag, tag_prefix)
+    tags = list_semver_tags(semver_tags.tag_prefix)
+    latest_tag = semver_tags.resolve_latest_tag(tags)
+    semver_tags.validate_tag(latest_tag)
     return latest_tag
 
 
