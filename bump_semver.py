@@ -3,36 +3,70 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from dataclasses import dataclass
 
 from github_labels import ActionError, parse_ignored_labels, resolve_version_bump_from_pr_labels
 from semver import SemverTags
 
 
+@dataclass
+class ActionConfig:
+    version_bump: str
+    github_token: str
+    api_url: str
+    repository: str
+    sha: str
+    target_branch: str
+    ignored_labels: set[str]
+    write_tag: bool
+    write_major_tag: bool
+    semver_tags: SemverTags
+
+    @classmethod
+    def from_env(cls) -> ActionConfig:
+        return cls(
+            version_bump=env("INPUT_VERSION_BUMP"),
+            github_token=env_first("INPUT_GITHUB_TOKEN", "GITHUB_TOKEN"),
+            api_url=env("GITHUB_API_URL", "https://api.github.com"),
+            repository=env("GITHUB_REPOSITORY"),
+            sha=env("GITHUB_SHA"),
+            target_branch=env("GITHUB_REF_NAME"),
+            ignored_labels=parse_ignored_labels(env("INPUT_IGNORE_LABELS", "dependencies")),
+            write_tag=env_bool("INPUT_WRITE_TAG", default=False),
+            write_major_tag=env_bool("INPUT_WRITE_MAJOR_TAG", default=False),
+            semver_tags=SemverTags(env("INPUT_TAG_PREFIX", "v")),
+        )
+
+    def validate(self) -> None:
+        if self.version_bump:
+            return
+
+        if not self.github_token:
+            raise ActionError("github-token (or GITHUB_TOKEN) is required when version-bump is empty.")
+        if not self.repository:
+            raise ActionError("GITHUB_REPOSITORY is required when version-bump is empty.")
+        if not self.sha:
+            raise ActionError("GITHUB_SHA is required when version-bump is empty.")
+        if not self.target_branch:
+            raise ActionError("GITHUB_REF_NAME is required when version-bump is empty.")
+
+
 def main() -> int:
-    version_bump = env("INPUT_VERSION_BUMP")
-    github_token = env_first("INPUT_GITHUB_TOKEN", "GITHUB_TOKEN")
-    api_url = env("GITHUB_API_URL", "https://api.github.com")
-    repository = env("GITHUB_REPOSITORY")
-    sha = env("GITHUB_SHA")
-    target_branch = env("GITHUB_REF_NAME")
-    ignored_labels = parse_ignored_labels(env("INPUT_IGNORE_LABELS", "dependencies"))
-    write_tag = env_bool("INPUT_WRITE_TAG", default=False)
-    write_major_tag = env_bool("INPUT_WRITE_MAJOR_TAG", default=False)
-    semver_tags = SemverTags(env("INPUT_TAG_PREFIX", "v"))
+    config = ActionConfig.from_env()
 
     try:
-        validate_inputs(version_bump, github_token, repository, sha, target_branch)
-        resolved_bump = compute_version_bump(version_bump, github_token, api_url, ignored_labels)
-        previous_tag = get_latest_semver_tag(semver_tags)
-        new_tag = semver_tags.bump_tag(previous_tag, resolved_bump)
+        config.validate()
+        resolved_bump = compute_version_bump(config)
+        previous_tag = get_latest_semver_tag(config.semver_tags)
+        new_tag = config.semver_tags.bump_tag(previous_tag, resolved_bump)
         log_info(f"Resolved bump={resolved_bump} from previous={previous_tag} to new={new_tag}")
 
-        if write_tag:
+        if config.write_tag:
             log_info(f"write-tag=true; creating and pushing {new_tag}")
             push_tag(new_tag)
 
-            if write_major_tag:
-                major_tag = semver_tags.major_tag_for(new_tag)
+            if config.write_major_tag:
+                major_tag = config.semver_tags.major_tag_for(new_tag)
                 log_info(f"write-major-tag=true; updating floating major tag {major_tag}")
                 push_major_tag(major_tag)
 
@@ -54,25 +88,11 @@ def main() -> int:
         return exc.returncode or 1
 
 
-def validate_inputs(explicit_bump: str, github_token: str, repository: str, sha: str, target_branch: str) -> None:
-    if explicit_bump:
-        return
+def compute_version_bump(config: ActionConfig) -> str:
+    if config.version_bump:
+        return config.version_bump
 
-    if not github_token:
-        raise ActionError("github-token (or GITHUB_TOKEN) is required when version-bump is empty.")
-    if not repository:
-        raise ActionError("GITHUB_REPOSITORY is required when version-bump is empty.")
-    if not sha:
-        raise ActionError("GITHUB_SHA is required when version-bump is empty.")
-    if not target_branch:
-        raise ActionError("GITHUB_REF_NAME is required when version-bump is empty.")
-
-
-def compute_version_bump(explicit_bump: str, github_token: str, api_url: str, ignored_labels: set[str]) -> str:
-    if explicit_bump:
-        return explicit_bump
-
-    resolved_bump = resolve_version_bump_from_pr_labels(github_token, api_url, ignored_labels)
+    resolved_bump = resolve_version_bump_from_pr_labels(config.github_token, config.api_url, config.ignored_labels)
     if resolved_bump:
         return resolved_bump
 
