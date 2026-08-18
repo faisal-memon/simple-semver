@@ -80,6 +80,31 @@ class ResolveBumpFromLabelsTests(unittest.TestCase):
             )
 
 
+class ResolveVersionBumpFromPrLabelsTests(unittest.TestCase):
+    def test_uses_git_for_associated_pull_requests(self):
+        git = FakeGitForPulls([
+            {
+                "number": 42,
+                "base": {"ref": "main"},
+                "labels": [{"name": "semver:minor"}],
+            }
+        ])
+        github = GitHubConfig(
+            token="token",
+            api_url="https://api.github.com",
+            repository="owner/repo",
+            sha="abc123",
+            target_branch="main",
+        )
+
+        result = github_labels.resolve_version_bump_from_pr_labels(git, github, {"dependencies"})
+
+        self.assertEqual(result, "minor")
+        self.assertIs(git.github_arg, github)
+
+
+
+
 class SemverTagsTests(unittest.TestCase):
     def test_bump_tag_patch(self):
         self.assertEqual(SemverTags("v").bump_tag("v1.2.3", "patch"), "v1.2.4")
@@ -108,6 +133,16 @@ class SemverTagsTests(unittest.TestCase):
 
     def test_major_tag_for(self):
         self.assertEqual(SemverTags("v").major_tag_for("v2.3.4"), "v2")
+
+
+class FakeGitForPulls:
+    def __init__(self, pulls):
+        self.pulls = pulls
+        self.github_arg = None
+
+    def get_associated_pull_requests(self, github):
+        self.github_arg = github
+        return self.pulls
 
 
 class FakeGit:

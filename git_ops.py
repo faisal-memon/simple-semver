@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+import json
 import subprocess
+import urllib.error
+import urllib.request
+from typing import TYPE_CHECKING
 
 from github_labels import ActionError
+
+if TYPE_CHECKING:
+    from config import GitHubConfig
 
 
 class Git:
@@ -18,6 +25,24 @@ class Git:
             capture_output=True,
         )
         return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+    def get_associated_pull_requests(self, github: GitHubConfig) -> list[dict]:
+        owner, repo = github.repository.split("/", 1)
+        request = urllib.request.Request(
+            url=f"{github.api_url}/repos/{owner}/{repo}/commits/{github.sha}/pulls",
+            headers={
+                "Authorization": f"Bearer {github.token}",
+                "Accept": "application/vnd.github+json",
+            },
+        )
+
+        try:
+            with urllib.request.urlopen(request) as response:
+                return json.load(response)
+        except urllib.error.HTTPError as exc:
+            raise ActionError(f"Failed to query pull requests for commit {github.sha}: HTTP {exc.code}.") from exc
+        except urllib.error.URLError as exc:
+            raise ActionError(f"Failed to query pull requests for commit {github.sha}: {exc.reason}.") from exc
 
     def push_tag(self, tag_name: str) -> None:
         self.delete_local_tag_if_present(tag_name)

@@ -17,7 +17,7 @@ def main() -> int:
 
     try:
         config.validate()
-        bump_type = compute_bump_type(config)
+        bump_type = compute_bump_type(config, git)
         previous_tag = semver_tags.get_latest_tag(git)
         new_tag = semver_tags.bump_tag(previous_tag, bump_type)
         log_info(f"Resolved bump={bump_type} from previous={previous_tag} to new={new_tag}")
@@ -49,11 +49,12 @@ def main() -> int:
         return exc.returncode or 1
 
 
-def compute_bump_type(config: Config) -> str:
+def compute_bump_type(config: Config, git: Git) -> str:
     if config.version_bump:
         return config.version_bump
 
     bump_type = resolve_version_bump_from_pr_labels(
+        git,
         config.github,
         config.ignored_labels,
     )
