@@ -15,10 +15,10 @@ def main() -> int:
 
     try:
         config.validate()
-        resolved_bump = compute_version_bump(config)
+        bump_type = compute_bump_type(config)
         previous_tag = get_latest_semver_tag(semver_tags)
-        new_tag = semver_tags.bump_tag(previous_tag, resolved_bump)
-        log_info(f"Resolved bump={resolved_bump} from previous={previous_tag} to new={new_tag}")
+        new_tag = semver_tags.bump_tag(previous_tag, bump_type)
+        log_info(f"Resolved bump={bump_type} from previous={previous_tag} to new={new_tag}")
 
         if config.write_tag:
             log_info(f"write-tag=true; creating and pushing {new_tag}")
@@ -29,10 +29,10 @@ def main() -> int:
                 log_info(f"write-major-tag=true; updating floating major tag {major_tag}")
                 push_major_tag(major_tag)
 
-        write_outputs(new_tag, previous_tag, resolved_bump)
+        write_outputs(new_tag, previous_tag, bump_type)
         log_info(
             "Wrote outputs "
-            f"new-tag={new_tag} previous-tag={previous_tag} version-bump-used={resolved_bump}"
+            f"new-tag={new_tag} previous-tag={previous_tag} version-bump-used={bump_type}"
         )
         return 0
     except ActionError as exc:
@@ -47,13 +47,13 @@ def main() -> int:
         return exc.returncode or 1
 
 
-def compute_version_bump(config: Config) -> str:
+def compute_bump_type(config: Config) -> str:
     if config.version_bump:
         return config.version_bump
 
-    resolved_bump = resolve_version_bump_from_pr_labels(config.github_token, config.api_url, config.ignored_labels)
-    if resolved_bump:
-        return resolved_bump
+    bump_type = resolve_version_bump_from_pr_labels(config.github_token, config.api_url, config.ignored_labels)
+    if bump_type:
+        return bump_type
 
     return "patch"
 
