@@ -12,13 +12,16 @@ def main() -> int:
     version_bump = env("INPUT_VERSION_BUMP")
     github_token = env_first("INPUT_GITHUB_TOKEN", "GITHUB_TOKEN")
     api_url = env("GITHUB_API_URL", "https://api.github.com")
+    repository = env("GITHUB_REPOSITORY")
+    sha = env("GITHUB_SHA")
+    target_branch = env("GITHUB_REF_NAME")
     ignored_labels = parse_ignored_labels(env("INPUT_IGNORE_LABELS", "dependencies"))
     write_tag = env_bool("INPUT_WRITE_TAG", default=False)
     write_major_tag = env_bool("INPUT_WRITE_MAJOR_TAG", default=False)
     semver_tags = SemverTags(env("INPUT_TAG_PREFIX", "v"))
 
     try:
-        require_github_token_if_needed(version_bump, github_token)
+        validate_inputs(version_bump, github_token, repository, sha, target_branch)
         resolved_bump = compute_version_bump(version_bump, github_token, api_url, ignored_labels)
         previous_tag = get_latest_semver_tag(semver_tags)
         new_tag = semver_tags.bump_tag(previous_tag, resolved_bump)
@@ -51,12 +54,18 @@ def main() -> int:
         return exc.returncode or 1
 
 
-def require_github_token_if_needed(explicit_bump: str, github_token: str) -> None:
+def validate_inputs(explicit_bump: str, github_token: str, repository: str, sha: str, target_branch: str) -> None:
     if explicit_bump:
         return
-    if github_token:
-        return
-    raise ActionError("github-token (or GITHUB_TOKEN) is required when version-bump is empty.")
+
+    if not github_token:
+        raise ActionError("github-token (or GITHUB_TOKEN) is required when version-bump is empty.")
+    if not repository:
+        raise ActionError("GITHUB_REPOSITORY is required when version-bump is empty.")
+    if not sha:
+        raise ActionError("GITHUB_SHA is required when version-bump is empty.")
+    if not target_branch:
+        raise ActionError("GITHUB_REF_NAME is required when version-bump is empty.")
 
 
 def compute_version_bump(explicit_bump: str, github_token: str, api_url: str, ignored_labels: set[str]) -> str:

@@ -17,9 +17,6 @@ class ActionError(Exception):
 
 
 def resolve_version_bump_from_pr_labels(github_token: str, api_url: str, ignored_labels: set[str]) -> str | None:
-    if not github_token:
-        raise ActionError("github-token (or GITHUB_TOKEN) is required when version-bump is empty.")
-
     repository = require_env(
         "GITHUB_REPOSITORY",
         "GITHUB_REPOSITORY and GITHUB_SHA are required to resolve version bump from PR labels.",
