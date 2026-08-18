@@ -18,9 +18,7 @@ def main() -> int:
 
     try:
         resolved_bump = compute_version_bump(version_bump, github_token, ignored_labels)
-        git("fetch", "--tags", "--force", check=False, capture_output=True)
-        latest_tag = resolve_latest_semver_tag(tag_prefix, list_tags(tag_prefix))
-        validate_latest_tag_format(latest_tag, tag_prefix)
+        latest_tag = get_latest_semver_tag(tag_prefix)
         previous_tag = f"{tag_prefix}{latest_tag}"
         next_version = bump_from_previous(latest_tag, resolved_bump)
         new_tag = f"{tag_prefix}{next_version}"
@@ -64,7 +62,19 @@ def compute_version_bump(explicit_bump: str, github_token: str, ignored_labels: 
     return "patch"
 
 
-def list_tags(tag_prefix: str) -> list[str]:
+def get_latest_semver_tag(tag_prefix: str) -> str:
+    fetch_tags()
+    semver_tags = list_semver_tags(tag_prefix)
+    latest_tag = resolve_latest_semver_tag(tag_prefix, semver_tags)
+    validate_latest_tag_format(latest_tag, tag_prefix)
+    return latest_tag
+
+
+def fetch_tags() -> None:
+    git("fetch", "--tags", "--force", check=False, capture_output=True)
+
+
+def list_semver_tags(tag_prefix: str) -> list[str]:
     result = git(
         "tag",
         "-l",
