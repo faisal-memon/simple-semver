@@ -10,7 +10,7 @@ from semver import SemverTags
 
 def main() -> int:
     version_bump = env("INPUT_VERSION_BUMP")
-    github_token = env("INPUT_GITHUB_TOKEN") or env("GITHUB_TOKEN")
+    github_token = env_first("INPUT_GITHUB_TOKEN", "GITHUB_TOKEN")
     api_url = env("GITHUB_API_URL", "https://api.github.com")
     ignored_labels = parse_ignored_labels(env("INPUT_IGNORE_LABELS", "dependencies"))
     write_tag = env_bool("INPUT_WRITE_TAG", default=False)
@@ -18,6 +18,7 @@ def main() -> int:
     semver_tags = SemverTags(env("INPUT_TAG_PREFIX", "v"))
 
     try:
+        require_github_token_if_needed(version_bump, github_token)
         resolved_bump = compute_version_bump(version_bump, github_token, api_url, ignored_labels)
         previous_tag = get_latest_semver_tag(semver_tags)
         new_tag = semver_tags.bump_tag(previous_tag, resolved_bump)
@@ -48,6 +49,14 @@ def main() -> int:
         else:
             print(str(exc), file=sys.stderr)
         return exc.returncode or 1
+
+
+def require_github_token_if_needed(explicit_bump: str, github_token: str) -> None:
+    if explicit_bump:
+        return
+    if github_token:
+        return
+    raise ActionError("github-token (or GITHUB_TOKEN) is required when version-bump is empty.")
 
 
 def compute_version_bump(explicit_bump: str, github_token: str, api_url: str, ignored_labels: set[str]) -> str:
@@ -133,6 +142,14 @@ def git(*args: str, capture_output: bool = False, check: bool = True) -> subproc
         text=True,
         capture_output=capture_output,
     )
+
+
+def env_first(*names: str) -> str:
+    for name in names:
+        value = env(name)
+        if value:
+            return value
+    return ""
 
 
 def env_bool(name: str, default: bool = False) -> bool:
