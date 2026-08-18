@@ -7,13 +7,18 @@ from github_labels import ActionError, parse_ignored_labels
 
 
 @dataclass
-class Config:
-    version_bump: str
-    github_token: str
+class GitHubConfig:
+    token: str
     api_url: str
     repository: str
     sha: str
     target_branch: str
+
+
+@dataclass
+class Config:
+    version_bump: str
+    github: GitHubConfig
     ignored_labels: set[str]
     write_tag: bool
     write_major_tag: bool
@@ -23,11 +28,13 @@ class Config:
     def from_env(cls) -> Config:
         return cls(
             version_bump=env("INPUT_VERSION_BUMP"),
-            github_token=env_first("INPUT_GITHUB_TOKEN", "GITHUB_TOKEN"),
-            api_url=env("GITHUB_API_URL", "https://api.github.com"),
-            repository=env("GITHUB_REPOSITORY"),
-            sha=env("GITHUB_SHA"),
-            target_branch=env("GITHUB_REF_NAME"),
+            github=GitHubConfig(
+                token=env_first("INPUT_GITHUB_TOKEN", "GITHUB_TOKEN"),
+                api_url=env("GITHUB_API_URL", "https://api.github.com"),
+                repository=env("GITHUB_REPOSITORY"),
+                sha=env("GITHUB_SHA"),
+                target_branch=env("GITHUB_REF_NAME"),
+            ),
             ignored_labels=parse_ignored_labels(env("INPUT_IGNORE_LABELS", "dependencies")),
             write_tag=env_bool("INPUT_WRITE_TAG", default=False),
             write_major_tag=env_bool("INPUT_WRITE_MAJOR_TAG", default=False),
@@ -38,13 +45,13 @@ class Config:
         if self.version_bump:
             return
 
-        if not self.github_token:
+        if not self.github.token:
             raise ActionError("github-token (or GITHUB_TOKEN) is required when version-bump is empty.")
-        if not self.repository:
+        if not self.github.repository:
             raise ActionError("GITHUB_REPOSITORY is required when version-bump is empty.")
-        if not self.sha:
+        if not self.github.sha:
             raise ActionError("GITHUB_SHA is required when version-bump is empty.")
-        if not self.target_branch:
+        if not self.github.target_branch:
             raise ActionError("GITHUB_REF_NAME is required when version-bump is empty.")
 
 

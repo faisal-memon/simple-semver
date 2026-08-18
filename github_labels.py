@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 import urllib.error
 import urllib.request
+
+if TYPE_CHECKING:
+    from config import GitHubConfig
 
 SEMVER_LABELS = {
     "semver:major": "major",
@@ -15,16 +19,9 @@ class ActionError(Exception):
     pass
 
 
-def resolve_version_bump_from_pr_labels(
-    github_token: str,
-    api_url: str,
-    repository: str,
-    sha: str,
-    target_branch: str,
-    ignored_labels: set[str],
-) -> str | None:
-    pulls = get_associated_pull_requests(github_token, api_url, repository, sha)
-    selected_pr = select_pull_request_for_branch(pulls, target_branch)
+def resolve_version_bump_from_pr_labels(github: GitHubConfig, ignored_labels: set[str]) -> str | None:
+    pulls = get_associated_pull_requests(github.token, github.api_url, github.repository, github.sha)
+    selected_pr = select_pull_request_for_branch(pulls, github.target_branch)
     if selected_pr is None:
         return None
 
