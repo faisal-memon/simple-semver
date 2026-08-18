@@ -53,7 +53,14 @@ def compute_bump_type(config: Config) -> str:
     if config.version_bump:
         return config.version_bump
 
-    bump_type = resolve_version_bump_from_pr_labels(config.github_token, config.api_url, config.ignored_labels)
+    bump_type = resolve_version_bump_from_pr_labels(
+        config.github_token,
+        config.api_url,
+        config.repository,
+        config.sha,
+        config.target_branch,
+        config.ignored_labels,
+    )
     if bump_type:
         return bump_type
 

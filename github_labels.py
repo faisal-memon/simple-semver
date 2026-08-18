@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import urllib.error
 import urllib.request
 
@@ -16,20 +15,14 @@ class ActionError(Exception):
     pass
 
 
-def resolve_version_bump_from_pr_labels(github_token: str, api_url: str, ignored_labels: set[str]) -> str | None:
-    repository = require_env(
-        "GITHUB_REPOSITORY",
-        "GITHUB_REPOSITORY and GITHUB_SHA are required to resolve version bump from PR labels.",
-    )
-    sha = require_env(
-        "GITHUB_SHA",
-        "GITHUB_REPOSITORY and GITHUB_SHA are required to resolve version bump from PR labels.",
-    )
-    target_branch = require_env(
-        "GITHUB_REF_NAME",
-        "GITHUB_REF_NAME is required to resolve version bump from PR labels.",
-    )
-
+def resolve_version_bump_from_pr_labels(
+    github_token: str,
+    api_url: str,
+    repository: str,
+    sha: str,
+    target_branch: str,
+    ignored_labels: set[str],
+) -> str | None:
     pulls = get_associated_pull_requests(github_token, api_url, repository, sha)
     selected_pr = select_pull_request_for_branch(pulls, target_branch)
     if selected_pr is None:
@@ -108,12 +101,3 @@ def normalize_label(label: str) -> str:
     return label.strip().lower()
 
 
-def require_env(var_name: str, error_message: str) -> str:
-    value = env(var_name)
-    if not value:
-        raise ActionError(error_message)
-    return value
-
-
-def env(name: str, default: str = "") -> str:
-    return os.environ.get(name, default)
