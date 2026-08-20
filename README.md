@@ -68,9 +68,11 @@ jobs:
 
 ## Outputs
 
-- `new-tag`: computed next tag (for example `v1.4.2`)
-- `previous-tag`: latest existing tag used as the bump source
-- `version-bump-used`: resolved bump type actually applied
+| Output | Description |
+| --- | --- |
+| `new-tag` | Computed next tag (for example `v1.4.2`). |
+| `previous-tag` | Latest existing tag used as the bump source. |
+| `version-bump-used` | Resolved bump type actually applied. |
 
 ## How it works
 
