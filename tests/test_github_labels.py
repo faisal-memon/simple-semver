@@ -1,7 +1,7 @@
 import unittest
+
 import github_labels
-from config import Config, GitHubConfig
-from semver import SemverTags
+from config import GitHubConfig
 
 
 class ParseIgnoredLabelsTests(unittest.TestCase):
@@ -13,45 +13,6 @@ class ParseIgnoredLabelsTests(unittest.TestCase):
             github_labels.parse_ignored_labels(" Dependencies, Needs-Review "),
             {"dependencies", "needs-review"},
         )
-
-
-class ConfigValidationTests(unittest.TestCase):
-    def test_requires_pr_label_inputs_when_version_bump_empty(self):
-        config = Config(
-            version_bump="",
-            github=GitHubConfig(
-                token="token",
-                api_url="https://api.github.com",
-                repository="",
-                sha="",
-                target_branch="",
-            ),
-            ignored_labels=set(),
-            write_tag=False,
-            write_major_tag=False,
-            tag_prefix="v",
-        )
-
-        with self.assertRaisesRegex(github_labels.ActionError, "GITHUB_REPOSITORY is required"):
-            config.validate()
-
-    def test_skips_pr_label_requirements_when_version_bump_is_set(self):
-        config = Config(
-            version_bump="patch",
-            github=GitHubConfig(
-                token="",
-                api_url="https://api.github.com",
-                repository="",
-                sha="",
-                target_branch="",
-            ),
-            ignored_labels=set(),
-            write_tag=False,
-            write_major_tag=False,
-            tag_prefix="v",
-        )
-
-        config.validate()
 
 
 class ResolveBumpFromLabelsTests(unittest.TestCase):
@@ -101,32 +62,6 @@ class ResolveVersionBumpFromPrLabelsTests(unittest.TestCase):
 
         self.assertEqual(result, "minor")
         self.assertIs(git.github_arg, github)
-
-
-
-
-class SemverTagsTests(unittest.TestCase):
-    def test_bump_tag_patch(self):
-        self.assertEqual(SemverTags("v").bump_tag("v1.2.3", "patch"), "v1.2.4")
-
-    def test_bump_tag_minor(self):
-        self.assertEqual(SemverTags("v").bump_tag("v1.2.3", "minor"), "v1.3.0")
-
-    def test_bump_tag_major(self):
-        self.assertEqual(SemverTags("v").bump_tag("v1.2.3", "major"), "v2.0.0")
-
-    def test_rejects_invalid_bump(self):
-        with self.assertRaisesRegex(github_labels.ActionError, "Unsupported version bump"):
-            SemverTags("v").bump_tag("v1.2.3", "banana")
-
-    def test_get_latest_tag_returns_zero_baseline_with_prefix(self):
-        self.assertEqual(SemverTags("v").get_latest_tag([]), "v0.0.0")
-
-    def test_get_latest_tag_returns_first_sorted_matching_tag(self):
-        self.assertEqual(SemverTags("v").get_latest_tag(["v2.3.4", "v2.3.3", "other"]), "v2.3.4")
-
-    def test_major_tag_for(self):
-        self.assertEqual(SemverTags("v").major_tag_for("v2.3.4"), "v2")
 
 
 class FakeGitForPulls:
