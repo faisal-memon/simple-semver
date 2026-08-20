@@ -52,7 +52,7 @@ runs:
         INPUT_IGNORE_LABELS: ${{ inputs.ignore-labels }}
         INPUT_WRITE_TAG: ${{ inputs.write-tag }}
         INPUT_WRITE_MAJOR_TAG: ${{ inputs.write-major-tag }}
-      run: python3 "${{ github.action_path }}/bump_semver.py"
+      run: python3 "${{ github.action_path }}/main.py"
 
 branding:
   icon: tag
