@@ -18,7 +18,6 @@ def main() -> int:
     try:
         config.validate()
         bump_type = compute_bump_type(config, git)
-        git.fetch_tags()
         tags = git.list_tags()
         previous_tag = semver_tags.get_latest_tag(tags)
         new_tag = semver_tags.bump_tag(previous_tag, bump_type)

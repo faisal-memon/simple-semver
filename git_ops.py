@@ -13,10 +13,8 @@ if TYPE_CHECKING:
 
 
 class Git:
-    def fetch_tags(self) -> None:
-        self.run("fetch", "--tags", "--force", check=False, capture_output=True)
-
     def list_tags(self) -> list[str]:
+        self.run("fetch", "--tags", "--force", check=False, capture_output=True)
         result = self.run(
             "tag",
             "-l",
