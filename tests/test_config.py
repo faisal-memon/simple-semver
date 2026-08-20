@@ -1,7 +1,7 @@
 import unittest
 
-import github_labels
 from config import Config, GitHubConfig
+from errors import ActionError
 
 
 class ConfigValidationTests(unittest.TestCase):
@@ -21,7 +21,7 @@ class ConfigValidationTests(unittest.TestCase):
             tag_prefix="v",
         )
 
-        with self.assertRaisesRegex(github_labels.ActionError, "GITHUB_REPOSITORY is required"):
+        with self.assertRaisesRegex(ActionError, "GITHUB_REPOSITORY is required"):
             config.validate()
 
     def test_skips_pr_label_requirements_when_version_bump_is_set(self):

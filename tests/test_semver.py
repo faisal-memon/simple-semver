@@ -1,6 +1,6 @@
 import unittest
 
-import github_labels
+from errors import ActionError
 from semver import SemverTags
 
 
@@ -15,7 +15,7 @@ class SemverTagsTests(unittest.TestCase):
         self.assertEqual(SemverTags("v").bump_tag("v1.2.3", "major"), "v2.0.0")
 
     def test_rejects_invalid_bump(self):
-        with self.assertRaisesRegex(github_labels.ActionError, "Unsupported version bump"):
+        with self.assertRaisesRegex(ActionError, "Unsupported version bump"):
             SemverTags("v").bump_tag("v1.2.3", "banana")
 
     def test_get_latest_tag_returns_zero_baseline_with_prefix(self):

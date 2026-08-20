@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from github_labels import ActionError
+from errors import ActionError
 
 SEMVER_RE = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
 

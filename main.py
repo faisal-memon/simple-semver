@@ -5,8 +5,9 @@ import subprocess
 import sys
 
 from config import Config, env
-from github_labels import ActionError, resolve_version_bump_from_pr_labels
+from errors import ActionError
 from git_ops import Git
+from pr_labels import resolve_bump_from_labels
 from semver import SemverTags
 
 
@@ -54,15 +55,22 @@ def compute_bump_type(config: Config, git: Git) -> str:
     if config.version_bump:
         return config.version_bump
 
-    bump_type = resolve_version_bump_from_pr_labels(
-        git,
-        config.github,
-        config.ignored_labels,
-    )
+    pulls = git.get_associated_pull_requests(config.github)
+    selected_pr = select_pull_request_for_branch(pulls, config.github.target_branch)
+    if selected_pr is None:
+        return "patch"
+
+    pr_number = selected_pr.get("number")
+    labels = [label.get("name", "") for label in selected_pr.get("labels", [])]
+    bump_type = resolve_bump_from_labels(pr_number, labels, config.ignored_labels)
     if bump_type:
         return bump_type
 
     return "patch"
+
+
+def select_pull_request_for_branch(pulls: list[dict], target_branch: str) -> dict | None:
+    return next((pull for pull in pulls if pull.get("base", {}).get("ref") == target_branch), None)
 
 
 def write_outputs(new_tag: str, previous_tag: str, version_bump_used: str) -> None:

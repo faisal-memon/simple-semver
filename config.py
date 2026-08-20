@@ -3,7 +3,8 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
-from github_labels import ActionError, parse_ignored_labels
+from errors import ActionError
+from pr_labels import parse_ignored_labels
 
 
 @dataclass

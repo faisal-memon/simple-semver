@@ -6,7 +6,7 @@ import urllib.error
 import urllib.request
 from typing import TYPE_CHECKING
 
-from github_labels import ActionError
+from errors import ActionError
 
 if TYPE_CHECKING:
     from config import GitHubConfig
