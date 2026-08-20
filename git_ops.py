@@ -16,11 +16,10 @@ class Git:
     def fetch_tags(self) -> None:
         self.run("fetch", "--tags", "--force", check=False, capture_output=True)
 
-    def list_tags(self, pattern: str) -> list[str]:
+    def list_tags(self) -> list[str]:
         result = self.run(
             "tag",
             "-l",
-            pattern,
             "--sort=-version:refname",
             capture_output=True,
         )

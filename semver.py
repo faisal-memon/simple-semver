@@ -11,9 +11,7 @@ class SemverTags:
     def __init__(self, tag_prefix: str) -> None:
         self.tag_prefix = tag_prefix
 
-    def get_latest_tag(self, git) -> str:
-        git.fetch_tags()
-        tags = git.list_tags(f"{self.tag_prefix}[0-9]*.[0-9]*.[0-9]*")
+    def get_latest_tag(self, tags: list[str]) -> str:
         matching_tags = [tag for tag in tags if self._matches_prefixed_semver(tag)]
         if not matching_tags:
             return f"{self.tag_prefix}0.0.0"
