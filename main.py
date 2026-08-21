@@ -12,19 +12,20 @@ from semver import SemverTags
 
 
 def main() -> int:
+    """Run the action entrypoint and report a process-style exit code."""
     config = Config.from_env()
     git = Git()
     semver_tags = SemverTags(config.tag_prefix)
 
     try:
         config.validate()
-        
+
         bump_type = compute_bump_type(config, git)
-        
+
         tags = git.list_tags()
         previous_tag = semver_tags.get_latest_tag(tags)
         new_tag = semver_tags.bump_tag(previous_tag, bump_type)
-        
+
         log_info(f"Resolved bump={bump_type} from previous={previous_tag} to new={new_tag}")
 
         if config.write_tag:
@@ -55,6 +56,7 @@ def main() -> int:
 
 
 def compute_bump_type(config: Config, git: Git) -> str:
+    """Resolve the bump type from an explicit override or PR labels."""
     if config.version_bump_override:
         return config.version_bump_override
 
@@ -71,6 +73,7 @@ def compute_bump_type(config: Config, git: Git) -> str:
 
 
 def write_outputs(new_tag: str, previous_tag: str, version_bump_used: str) -> None:
+    """Append action outputs to the GitHub output file."""
     output_path = env("GITHUB_OUTPUT")
     if not output_path:
         raise ActionError("GITHUB_OUTPUT is required to write action outputs.")
@@ -82,6 +85,7 @@ def write_outputs(new_tag: str, previous_tag: str, version_bump_used: str) -> No
 
 
 def log_info(message: str) -> None:
+    """Print a consistently prefixed informational log line."""
     print(f"[pr-label-semver] {message}")
 
 

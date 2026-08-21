@@ -10,6 +10,7 @@ SEMVER_LABELS = {
 
 
 def resolve_bump_from_labels(pr_number: int, labels: list[str], ignored_labels: set[str]) -> str | None:
+    """Resolve a single bump type from the labels present on a PR."""
     matched_bumps: list[str] = []
     for label in labels:
         normalized = normalize_label(label)
@@ -36,10 +37,12 @@ def resolve_bump_from_labels(pr_number: int, labels: list[str], ignored_labels: 
 
 
 def parse_ignored_labels(raw_value: str) -> set[str]:
+    """Parse and normalize the configured comma-separated ignored labels."""
     if raw_value == "":
         return set()
     return {normalize_label(part) for part in raw_value.split(",") if normalize_label(part)}
 
 
 def normalize_label(label: str) -> str:
+    """Normalize a label for case-insensitive comparisons."""
     return label.strip().lower()

@@ -9,6 +9,8 @@ from pr_labels import parse_ignored_labels
 
 @dataclass
 class GitHubConfig:
+    """GitHub context required to inspect PR labels for a commit."""
+
     token: str
     api_url: str
     repository: str
@@ -18,6 +20,8 @@ class GitHubConfig:
 
 @dataclass
 class Config:
+    """Top-level action configuration loaded from the environment."""
+
     version_bump_override: str
     github: GitHubConfig
     ignored_labels: set[str]
@@ -27,6 +31,7 @@ class Config:
 
     @classmethod
     def from_env(cls) -> Config:
+        """Build config from action inputs and GitHub runtime variables."""
         return cls(
             version_bump_override=env("INPUT_VERSION_BUMP"),
             github=GitHubConfig(
@@ -43,6 +48,7 @@ class Config:
         )
 
     def validate(self) -> None:
+        """Validate required runtime inputs for PR-label-driven bump resolution."""
         if self.version_bump_override:
             return
 
@@ -57,6 +63,7 @@ class Config:
 
 
 def env_first(*names: str) -> str:
+    """Return the first non-empty environment value from the given names."""
     for name in names:
         value = env(name)
         if value:
@@ -65,9 +72,11 @@ def env_first(*names: str) -> str:
 
 
 def env_bool(name: str, default: bool = False) -> bool:
+    """Read a boolean action input using true/false string semantics."""
     value = env(name, "true" if default else "false").strip().lower()
     return value == "true"
 
 
 def env(name: str, default: str = "") -> str:
+    """Read an environment variable with an optional default."""
     return os.environ.get(name, default)
