@@ -49,7 +49,7 @@ class PullRequestResolutionFlowTests(unittest.TestCase):
         from main import compute_bump_type
 
         config = Config(
-            version_bump="",
+            version_bump_override="",
             github=GitHubConfig(
                 token="token",
                 api_url="https://api.github.com",
@@ -74,7 +74,7 @@ class PullRequestResolutionFlowTests(unittest.TestCase):
         from main import compute_bump_type
 
         config = Config(
-            version_bump="",
+            version_bump_override="",
             github=GitHubConfig(
                 token="token",
                 api_url="https://api.github.com",

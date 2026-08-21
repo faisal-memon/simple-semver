@@ -18,7 +18,7 @@ class GitHubConfig:
 
 @dataclass
 class Config:
-    version_bump: str
+    version_bump_override: str
     github: GitHubConfig
     ignored_labels: set[str]
     write_tag: bool
@@ -28,7 +28,7 @@ class Config:
     @classmethod
     def from_env(cls) -> Config:
         return cls(
-            version_bump=env("INPUT_VERSION_BUMP"),
+            version_bump_override=env("INPUT_VERSION_BUMP"),
             github=GitHubConfig(
                 token=env_first("INPUT_GITHUB_TOKEN", "GITHUB_TOKEN"),
                 api_url=env("GITHUB_API_URL", "https://api.github.com"),
@@ -43,7 +43,7 @@ class Config:
         )
 
     def validate(self) -> None:
-        if self.version_bump:
+        if self.version_bump_override:
             return
 
         if not self.github.token:

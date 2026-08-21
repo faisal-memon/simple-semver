@@ -52,8 +52,8 @@ def main() -> int:
 
 
 def compute_bump_type(config: Config, git: Git) -> str:
-    if config.version_bump:
-        return config.version_bump
+    if config.version_bump_override:
+        return config.version_bump_override
 
     pull_request_labels = git.get_pull_request_labels(config.github)
     if pull_request_labels is None:

@@ -5,9 +5,9 @@ from errors import ActionError
 
 
 class ConfigValidationTests(unittest.TestCase):
-    def test_requires_pr_label_inputs_when_version_bump_empty(self):
+    def test_requires_pr_label_inputs_when_version_bump_override_empty(self):
         config = Config(
-            version_bump="",
+            version_bump_override="",
             github=GitHubConfig(
                 token="token",
                 api_url="https://api.github.com",
@@ -24,9 +24,9 @@ class ConfigValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(ActionError, "GITHUB_REPOSITORY is required"):
             config.validate()
 
-    def test_skips_pr_label_requirements_when_version_bump_is_set(self):
+    def test_skips_pr_label_requirements_when_version_bump_override_is_set(self):
         config = Config(
-            version_bump="patch",
+            version_bump_override="patch",
             github=GitHubConfig(
                 token="",
                 api_url="https://api.github.com",
