@@ -2,17 +2,17 @@
 
 ## Purpose
 
-`simple-semver` is a reusable GitHub composite action that computes the next semantic version tag based on:
+`pr-label-semver` is a reusable GitHub composite action that computes the next semantic version tag based on:
 
 - the latest existing Git tag
 - an explicit bump input (`major`, `minor`, `patch`)
-- or commit-message hints (`[major]`, `[minor]`, `[patch]`, and `#major/#minor/#patch`)
+- or pull request labels (`semver:major`, `semver:minor`, `semver:patch`)
 
 When no prior tags exist, it treats the baseline as `v0.0.0` (or `<tag-prefix>0.0.0`) and bumps from there.
 
 ## Core Behavior
 
-The action runs `bump_semver.sh` and emits:
+The action runs `main.py` directly and emits:
 
 - `new-tag`: the computed next version tag
 - `previous-tag`: the latest version tag used as the bump source
@@ -20,57 +20,31 @@ The action runs `bump_semver.sh` and emits:
 
 By default, it computes outputs only.
 
-## Retry-Safe Tag Writing
+## Tag Writing Behavior
 
-To support concurrent pipelines safely, the action includes an optional optimistic-concurrency write mode.
+To avoid unexpected version reuse, tag creation is optimistic and strict:
 
-Enable with:
+1. fetch tags
+2. compute the next version from the latest semantic-version tag
+3. create the candidate tag locally
+4. push the tag to `origin`
 
-- `write-tag: "true"`
+If the push reports the tag already exists, the action fails and tells callers to enable workflow concurrency with `cancel-in-progress: false`.
 
-### Retry flow
-
-When `write-tag` is enabled, each attempt does:
-
-1. `git fetch --tags --force`
-2. Read current latest tag from Git
-3. Compute next semver using the resolved bump type
-4. Create the candidate local tag
-5. Push tag to `origin`
-
-If push fails because the tag already exists remotely, the action:
-
-- removes the local tag for that failed attempt
-- sleeps briefly
-- re-fetches and recomputes from the new latest tag
-- retries until success or max attempts are reached
-
-If retries are exhausted (or failure is not a tag-collision case), the action exits non-zero with the Git push error output.
-
-## Why this exists
-
-Without this loop, two workflows running close together can both compute the same next version (for example `v1.2.4`) and then conflict on push. The retry loop makes the second writer rebase its version decision on the latest remote tag and publish the next available version instead.
+When `write-major-tag` is enabled, the action also force-updates the floating major tag for the computed major version (for example `v1` or `v0`).
 
 ## Maintainer Notes
 
-- `Makefile` is the local developer entry point for linting.
-- `make lint` runs ShellCheck and auto-installs the pinned ShellCheck version into `.tools/shellcheck/` when needed.
-- `.tools/` is intentionally git-ignored.
-- CI pull request linting runs via `.github/workflows/pr_build.yaml`.
+- `Makefile` is the local developer entry point for validation.
+- `make lint` checks Python syntax for the action and tests.
+- `make test` runs the unit test suite.
+- Keep the public action inputs stable when possible.
+- Prefer pure-stdlib Python so the action stays lightweight on GitHub-hosted runners.
 
 ## Release Workflow Guardrails
 
-
-- Release workflow can optionally resolve bump type from PR labels (`major`, `minor`, `patch`) scoped to a target branch.
-- The workflow defaults to `patch` when no label is present, and fails when more than one bump label is present.
+- Release workflow resolves bump type from PR labels (`semver:major`, `semver:minor`, `semver:patch`) scoped to the target branch.
+- The workflow defaults to `patch` when no semver label is present, and fails when more than one bump label is present.
 - `.github/workflows/release_build.yaml` is the self-release workflow for this repo.
-- It intentionally uses this action itself (`uses: faisal-memon/simple-semver@...`) to dogfood behavior.
-- It skips release execution for self-version-bump churn commits by checking commit message content.
-- It also ignores push events that only modify `AGENTS.md`, so documentation-only agent guidance updates do not create releases.
-
-## Practical Guidance For Future Agents
-
-- Keep changes small and explicit in `bump_semver.sh`; shell behavior can be subtle.
-- Run `make lint` after shell edits.
-- Preserve backwards compatibility for action inputs when possible; prefer adding optional inputs over changing defaults abruptly.
-- When editing release behavior, avoid introducing infinite release loops (self-bump and dependency-bump feedback cycles).
+- It intentionally uses this action itself to dogfood behavior.
+- It should keep workflow concurrency enabled to avoid tag collisions during releases.
