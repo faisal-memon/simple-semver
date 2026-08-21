@@ -23,6 +23,16 @@ class Git:
         )
         return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
+    def get_pull_request_labels(self, github: GitHubConfig) -> tuple[int, list[str]] | None:
+        pulls = self.get_associated_pull_requests(github)
+        selected_pr = next((pull for pull in pulls if pull.get("base", {}).get("ref") == github.target_branch), None)
+        if selected_pr is None:
+            return None
+
+        pr_number = selected_pr.get("number")
+        labels = [label.get("name", "") for label in selected_pr.get("labels", [])]
+        return pr_number, labels
+
     def get_associated_pull_requests(self, github: GitHubConfig) -> list[dict]:
         owner, repo = github.repository.split("/", 1)
         request = urllib.request.Request(
