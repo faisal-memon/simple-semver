@@ -19,9 +19,12 @@ def main() -> int:
 
     try:
         config.validate()
-
+        # First determine the type of bump: major, minor, or patch
+        # The bump is determined first by override in the action and then
+        # labels on the PR.
         bump_type = compute_bump_type(config, git)
 
+        # Bump the latest tag with the configured prefix.
         tags = git.list_tags()
         previous_tag = semver_tags.get_latest_tag(tags)
         new_tag = semver_tags.bump_tag(previous_tag, bump_type)
