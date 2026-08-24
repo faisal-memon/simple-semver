@@ -38,6 +38,9 @@ outputs:
   version-bump-used:
     description: The bump type that was ultimately applied.
     value: ${{ steps.bump.outputs.version-bump-used }}
+  release-skipped:
+    description: Whether the action skipped the release because the associated PR has an ignored label and no semver label.
+    value: ${{ steps.bump.outputs.release-skipped }}
 
 runs:
   using: composite

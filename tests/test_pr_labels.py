@@ -1,4 +1,7 @@
+import os
+import tempfile
 import unittest
+from unittest.mock import patch
 
 from config import GitHubConfig
 from pr_labels import has_ignored_label, parse_ignored_labels, resolve_bump_from_labels
@@ -100,9 +103,8 @@ class PullRequestResolutionFlowTests(unittest.TestCase):
         self.assertEqual(result, "patch")
         self.assertIs(git.github_arg, config.github)
 
-    def test_compute_bump_type_stops_for_ignored_only_pull_request(self):
+    def test_compute_bump_type_skips_ignored_only_pull_request(self):
         from config import Config
-        from errors import ActionError
         from main import compute_bump_type
 
         config = Config(
@@ -121,8 +123,21 @@ class PullRequestResolutionFlowTests(unittest.TestCase):
         )
         git = FakeGitForPullRequestLabels((42, ["dependencies", "team:platform"]))
 
-        with self.assertRaisesRegex(ActionError, "no release tag will be created"):
-            compute_bump_type(config, git)
+        self.assertIsNone(compute_bump_type(config, git))
+
+    def test_write_outputs_marks_a_skipped_release(self):
+        from main import write_outputs
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            output_path = os.path.join(temporary_directory, "github-output")
+            with patch.dict(os.environ, {"GITHUB_OUTPUT": output_path}):
+                write_outputs("", "", "", release_skipped=True)
+
+            with open(output_path, encoding="utf-8") as output_file:
+                self.assertEqual(
+                    output_file.read(),
+                    "new-tag=\nprevious-tag=\nversion-bump-used=\nrelease-skipped=true\n",
+                )
 
 
 class FakeGitForPullRequestLabels:

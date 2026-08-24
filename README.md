@@ -41,6 +41,7 @@ jobs:
           ignore-labels: "dependencies"
 
       - name: Create GitHub Release
+        if: steps.bump.outputs.release-skipped != 'true'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.bump.outputs.new-tag }}
@@ -73,6 +74,7 @@ jobs:
 | `new-tag` | Computed next tag (for example `v1.4.2`). |
 | `previous-tag` | Latest existing tag used as the bump source. |
 | `version-bump-used` | Resolved bump type actually applied. |
+| `release-skipped` | `true` when an ignored label is present without a semver label; publishing steps should be skipped. |
 
 ## How it works
 
@@ -81,8 +83,10 @@ The version always follows `major`.`minor`.`patch` format. Each time this action
 - Fetches the latest semantic-version tag matching the prefix (`vX.Y.Z`). If none exist, starts from `v0.0.0`
 - If `version-bump` is provided, it is used directly
 - Otherwise, the action checks labels (`semver:major`, `semver:minor`, `semver:patch`) on the PR associated with the commit
-- If the PR has an ignored label (by default, `dependencies`) and no semver label, the action stops before creating a tag
+- If the PR has an ignored label (by default, `dependencies`) and no semver label, the action succeeds without creating a tag and writes `release-skipped=true`
 - If no matching label is found, it defaults to `patch`
 - Selected part of tag is bumped
 
 An explicit semver label takes precedence over an ignored label, so a dependency update can still be deliberately released.
+
+When `release-skipped` can be `true`, add `if: steps.bump.outputs.release-skipped != 'true'` to every step that publishes a release artifact, including image publishing and release creation.
