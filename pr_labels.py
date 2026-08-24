@@ -36,6 +36,11 @@ def resolve_bump_from_labels(pr_number: int, labels: list[str], ignored_labels: 
     return None
 
 
+def has_ignored_label(labels: list[str], ignored_labels: set[str]) -> bool:
+    """Return whether a PR has a label configured to suppress default releases."""
+    return any(normalize_label(label) in ignored_labels for label in labels)
+
+
 def parse_ignored_labels(raw_value: str) -> set[str]:
     """Parse and normalize the configured comma-separated ignored labels."""
     if raw_value == "":

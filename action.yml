@@ -16,7 +16,7 @@ inputs:
     required: false
     default: ""
   ignore-labels:
-    description: Comma-separated PR labels to ignore before resolving semver labels. Set empty to ignore nothing.
+    description: Comma-separated PR labels that suppress the default patch release when no semver label is present. A semver label overrides this suppression. Set empty to disable it.
     required: false
     default: "dependencies"
   write-tag:
@@ -38,6 +38,9 @@ outputs:
   version-bump-used:
     description: The bump type that was ultimately applied.
     value: ${{ steps.bump.outputs.version-bump-used }}
+  release-skipped:
+    description: Whether the action skipped the release because the associated PR has an ignored label and no semver label.
+    value: ${{ steps.bump.outputs.release-skipped }}
 
 runs:
   using: composite
