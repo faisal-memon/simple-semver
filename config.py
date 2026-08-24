@@ -4,7 +4,6 @@ import os
 from dataclasses import dataclass
 
 from errors import ActionError
-from pr_labels import parse_ignored_labels
 
 
 @dataclass
@@ -24,7 +23,6 @@ class Config:
 
     version_bump_override: str
     github: GitHubConfig
-    ignored_labels: set[str]
     write_tag: bool
     write_major_tag: bool
     tag_prefix: str
@@ -41,7 +39,6 @@ class Config:
                 sha=env("GITHUB_SHA"),
                 target_branch=env("GITHUB_REF_NAME"),
             ),
-            ignored_labels=parse_ignored_labels(env("INPUT_IGNORE_LABELS", "dependencies")),
             write_tag=env_bool("INPUT_WRITE_TAG", default=False),
             write_major_tag=env_bool("INPUT_WRITE_MAJOR_TAG", default=False),
             tag_prefix=env("INPUT_TAG_PREFIX", "v"),

@@ -15,10 +15,6 @@ inputs:
     description: GitHub token used to resolve PR labels for bump selection.
     required: false
     default: ""
-  ignore-labels:
-    description: Comma-separated PR labels that suppress the default patch release when no semver label is present. A semver label overrides this suppression. Set empty to disable it.
-    required: false
-    default: "dependencies"
   write-tag:
     description: When true, create and push the computed tag to origin. If the tag already exists, the action fails and points to workflow concurrency.
     required: false
@@ -38,9 +34,6 @@ outputs:
   version-bump-used:
     description: The bump type that was ultimately applied.
     value: ${{ steps.bump.outputs.version-bump-used }}
-  release-skipped:
-    description: Whether the action skipped the release because the associated PR has an ignored label and no semver label.
-    value: ${{ steps.bump.outputs.release-skipped }}
 
 runs:
   using: composite
@@ -52,7 +45,6 @@ runs:
         INPUT_VERSION_BUMP: ${{ inputs.version-bump }}
         INPUT_TAG_PREFIX: ${{ inputs.tag-prefix }}
         INPUT_GITHUB_TOKEN: ${{ inputs.github-token }}
-        INPUT_IGNORE_LABELS: ${{ inputs.ignore-labels }}
         INPUT_WRITE_TAG: ${{ inputs.write-tag }}
         INPUT_WRITE_MAJOR_TAG: ${{ inputs.write-major-tag }}
       run: python3 "${{ github.action_path }}/main.py"
