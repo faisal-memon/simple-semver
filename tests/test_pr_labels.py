@@ -1,29 +1,14 @@
-import os
-import tempfile
 import unittest
-from unittest.mock import patch
 
 from config import GitHubConfig
-from pr_labels import has_ignored_label, parse_ignored_labels, resolve_bump_from_labels
-
-
-class ParseIgnoredLabelsTests(unittest.TestCase):
-    def test_empty_value_disables_ignored_labels(self):
-        self.assertEqual(parse_ignored_labels(""), set())
-
-    def test_normalizes_labels(self):
-        self.assertEqual(
-            parse_ignored_labels(" Dependencies, Needs-Review "),
-            {"dependencies", "needs-review"},
-        )
+from pr_labels import resolve_bump_from_labels
 
 
 class ResolveBumpFromLabelsTests(unittest.TestCase):
-    def test_returns_none_when_only_ignored_labels_exist(self):
+    def test_returns_none_when_no_semver_labels_exist(self):
         result = resolve_bump_from_labels(
             10,
             ["dependencies", "team:platform"],
-            {"dependencies"},
         )
         self.assertIsNone(result)
 
@@ -31,15 +16,8 @@ class ResolveBumpFromLabelsTests(unittest.TestCase):
         result = resolve_bump_from_labels(
             11,
             ["dependencies", "semver:minor"],
-            {"dependencies"},
         )
         self.assertEqual(result, "minor")
-
-    def test_detects_ignored_label(self):
-        self.assertTrue(has_ignored_label(["Dependencies", "team:platform"], {"dependencies"}))
-
-    def test_does_not_detect_ignored_label_when_none_match(self):
-        self.assertFalse(has_ignored_label(["team:platform"], {"dependencies"}))
 
     def test_rejects_multiple_semver_labels(self):
         from errors import ActionError
@@ -48,7 +26,6 @@ class ResolveBumpFromLabelsTests(unittest.TestCase):
             resolve_bump_from_labels(
                 12,
                 ["semver:patch", "semver:major"],
-                set(),
             )
 
 
@@ -66,7 +43,6 @@ class PullRequestResolutionFlowTests(unittest.TestCase):
                 sha="abc123",
                 target_branch="main",
             ),
-            ignored_labels={"dependencies"},
             write_tag=False,
             write_major_tag=False,
             tag_prefix="v",
@@ -91,7 +67,6 @@ class PullRequestResolutionFlowTests(unittest.TestCase):
                 sha="abc123",
                 target_branch="main",
             ),
-            ignored_labels={"dependencies"},
             write_tag=False,
             write_major_tag=False,
             tag_prefix="v",
@@ -103,7 +78,7 @@ class PullRequestResolutionFlowTests(unittest.TestCase):
         self.assertEqual(result, "patch")
         self.assertIs(git.github_arg, config.github)
 
-    def test_compute_bump_type_skips_ignored_only_pull_request(self):
+    def test_compute_bump_type_defaults_for_dependency_pull_request(self):
         from config import Config
         from main import compute_bump_type
 
@@ -116,28 +91,13 @@ class PullRequestResolutionFlowTests(unittest.TestCase):
                 sha="abc123",
                 target_branch="main",
             ),
-            ignored_labels={"dependencies"},
             write_tag=False,
             write_major_tag=False,
             tag_prefix="v",
         )
         git = FakeGitForPullRequestLabels((42, ["dependencies", "team:platform"]))
 
-        self.assertIsNone(compute_bump_type(config, git))
-
-    def test_write_outputs_marks_a_skipped_release(self):
-        from main import write_outputs
-
-        with tempfile.TemporaryDirectory() as temporary_directory:
-            output_path = os.path.join(temporary_directory, "github-output")
-            with patch.dict(os.environ, {"GITHUB_OUTPUT": output_path}):
-                write_outputs("", "", "", release_skipped=True)
-
-            with open(output_path, encoding="utf-8") as output_file:
-                self.assertEqual(
-                    output_file.read(),
-                    "new-tag=\nprevious-tag=\nversion-bump-used=\nrelease-skipped=true\n",
-                )
+        self.assertEqual(compute_bump_type(config, git), "patch")
 
 
 class FakeGitForPullRequestLabels:
