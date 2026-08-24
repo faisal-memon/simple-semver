@@ -7,7 +7,7 @@ import sys
 from config import Config, env
 from errors import ActionError
 from git_ops import Git
-from pr_labels import has_ignored_label, resolve_bump_from_labels
+from pr_labels import resolve_bump_from_labels
 from semver import SemverTags
 
 
@@ -23,11 +23,6 @@ def main() -> int:
         # The bump is determined first by override in the action and then
         # labels on the PR.
         bump_type = compute_bump_type(config, git)
-        if bump_type is None:
-            write_outputs("", "", "", release_skipped=True)
-            log_info("Skipping release because the associated PR has an ignored label and no semver label")
-            return 0
-
         # Bump the latest tag with the configured prefix.
         tags = git.list_tags()
         previous_tag = semver_tags.get_latest_tag(tags)
@@ -44,7 +39,7 @@ def main() -> int:
                 log_info(f"write-major-tag=true; updating floating major tag {major_tag}")
                 git.push_major_tag(major_tag)
 
-        write_outputs(new_tag, previous_tag, bump_type, release_skipped=False)
+        write_outputs(new_tag, previous_tag, bump_type)
         log_info(
             "Wrote outputs "
             f"new-tag={new_tag} previous-tag={previous_tag} version-bump-used={bump_type}"
@@ -62,7 +57,7 @@ def main() -> int:
         return exc.returncode or 1
 
 
-def compute_bump_type(config: Config, git: Git) -> str | None:
+def compute_bump_type(config: Config, git: Git) -> str:
     """Resolve the bump type from an explicit override or PR labels."""
     if config.version_bump_override:
         return config.version_bump_override
@@ -72,21 +67,14 @@ def compute_bump_type(config: Config, git: Git) -> str | None:
         return "patch"
 
     pr_number, labels = pull_request_labels
-    bump_type = resolve_bump_from_labels(pr_number, labels, config.ignored_labels)
+    bump_type = resolve_bump_from_labels(pr_number, labels)
     if bump_type:
         return bump_type
-
-    if has_ignored_label(labels, config.ignored_labels):
-        log_info(
-            f"PR #{pr_number} has an ignored label and no semver label; skipping the release. "
-            "Add exactly one semver:major, semver:minor, or semver:patch label to release it."
-        )
-        return None
 
     return "patch"
 
 
-def write_outputs(new_tag: str, previous_tag: str, version_bump_used: str, *, release_skipped: bool) -> None:
+def write_outputs(new_tag: str, previous_tag: str, version_bump_used: str) -> None:
     """Append action outputs to the GitHub output file."""
     output_path = env("GITHUB_OUTPUT")
     if not output_path:
@@ -96,7 +84,6 @@ def write_outputs(new_tag: str, previous_tag: str, version_bump_used: str, *, re
         handle.write(f"new-tag={new_tag}\n")
         handle.write(f"previous-tag={previous_tag}\n")
         handle.write(f"version-bump-used={version_bump_used}\n")
-        handle.write(f"release-skipped={'true' if release_skipped else 'false'}\n")
 
 
 def log_info(message: str) -> None:
