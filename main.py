@@ -7,7 +7,7 @@ import sys
 from config import Config, env
 from errors import ActionError
 from git_ops import Git
-from pr_labels import resolve_bump_from_labels
+from pr_labels import has_ignored_label, resolve_bump_from_labels
 from semver import SemverTags
 
 
@@ -71,6 +71,12 @@ def compute_bump_type(config: Config, git: Git) -> str:
     bump_type = resolve_bump_from_labels(pr_number, labels, config.ignored_labels)
     if bump_type:
         return bump_type
+
+    if has_ignored_label(labels, config.ignored_labels):
+        raise ActionError(
+            f"PR #{pr_number} has an ignored label and no semver label, so no release tag will be created. "
+            "Add exactly one semver:major, semver:minor, or semver:patch label to release it."
+        )
 
     return "patch"
 
